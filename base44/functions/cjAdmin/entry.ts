@@ -8,35 +8,38 @@
  *   mapping_summary          — summary of all CJ mappings by type/status
  *   status_map               — return the canonical CJ status normalization table
  *
- * Required env vars:
- *   CJ_EMAIL
- *   CJ_API_KEY
+ * Token persisted in CJSession entity to survive Deno isolate restarts.
  */
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
 const CJ_BASE = 'https://developers.cjdropshipping.com/api2.0/v1';
 
-let _tokenCache = { token: null, expiresAt: 0, refreshToken: null };
-
-async function getCJToken(email, apiKey) {
+async function getCJToken(base44, email, apiKey) {
   const now = Date.now();
-  if (_tokenCache.token && _tokenCache.expiresAt > now + 300_000) return _tokenCache.token;
+  const sessions = await base44.asServiceRole.entities.CJSession.filter({ email });
+  const session = sessions[0];
 
-  if (_tokenCache.refreshToken && _tokenCache.expiresAt > now - 3_600_000) {
+  if (session?.access_token && session.expires_at > now + 300_000) {
+    return session.access_token;
+  }
+
+  if (session?.refresh_token && session.expires_at > now - 3_600_000) {
     try {
       const res = await fetch(`${CJ_BASE}/authentication/refreshAccessToken`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json', 'refreshToken': _tokenCache.refreshToken },
+        headers: { 'Content-Type': 'application/json', 'refreshToken': session.refresh_token },
       });
       const data = await res.json();
       if (data.result === true && data.data?.accessToken) {
-        _tokenCache = {
-          token: data.data.accessToken,
-          refreshToken: data.data.refreshToken || _tokenCache.refreshToken,
-          expiresAt: now + (data.data.expiresIn || 86400) * 1000,
+        const updated = {
+          access_token: data.data.accessToken,
+          refresh_token: data.data.refreshToken || session.refresh_token,
+          expires_at: now + (data.data.expiresIn || 86400) * 1000,
+          email,
         };
-        return _tokenCache.token;
+        await base44.asServiceRole.entities.CJSession.update(session.id, updated);
+        return updated.access_token;
       }
     } catch (_) { /* fall through */ }
   }
@@ -50,12 +53,18 @@ async function getCJToken(email, apiKey) {
   if (data.result !== true || !data.data?.accessToken) {
     throw new Error(`CJ auth failed: ${data.message || JSON.stringify(data)}`);
   }
-  _tokenCache = {
-    token: data.data.accessToken,
-    refreshToken: data.data.refreshToken || null,
-    expiresAt: now + (data.data.expiresIn || 86400) * 1000,
+  const newSession = {
+    access_token: data.data.accessToken,
+    refresh_token: data.data.refreshToken || null,
+    expires_at: now + (data.data.expiresIn || 86400) * 1000,
+    email,
   };
-  return _tokenCache.token;
+  if (session) {
+    await base44.asServiceRole.entities.CJSession.update(session.id, newSession);
+  } else {
+    await base44.asServiceRole.entities.CJSession.create(newSession);
+  }
+  return newSession.access_token;
 }
 
 async function cjGet(token, path, params) {
@@ -98,17 +107,15 @@ Deno.serve(async (req) => {
   const body = await req.json();
   const { action } = body;
 
-  // ── status_map ─────────────────────────────────────────────────────────
+  // ── status_map ────────────────────────────────────────────────────────────
   if (action === 'status_map') {
     return Response.json({
-      action,
-      cj_to_canonical_status_map: CJ_STATUS_MAP,
-      fallback_behavior: 'unmapped statuses are returned as "unmapped:<raw>" and create a CJDeadLetter record with failure_class=malformed_response',
-      note: 'Any status not in this map will generate a dead-letter entry for manual review',
+      action, cj_to_canonical_status_map: CJ_STATUS_MAP,
+      fallback_behavior: 'unmapped statuses returned as "unmapped:<raw>" and create a CJDeadLetter record',
     });
   }
 
-  // ── list_dead_letters ──────────────────────────────────────────────────
+  // ── list_dead_letters ─────────────────────────────────────────────────────
   if (action === 'list_dead_letters') {
     const { status = 'pending_retry', failure_class, limit = 50 } = body;
     const filter = { status };
@@ -117,15 +124,17 @@ Deno.serve(async (req) => {
     return Response.json({ action, count: letters.length, dead_letters: letters.slice(0, limit) });
   }
 
-  // ── resolve_dead_letter ────────────────────────────────────────────────
+  // ── resolve_dead_letter ───────────────────────────────────────────────────
   if (action === 'resolve_dead_letter') {
     const { dead_letter_id, resolution } = body;
-    if (!dead_letter_id || !resolution) return Response.json({ error: 'dead_letter_id and resolution (resolved|abandoned) required' }, { status: 400 });
+    if (!dead_letter_id || !resolution) {
+      return Response.json({ error: 'dead_letter_id and resolution (resolved|abandoned) required' }, { status: 400 });
+    }
     await base44.asServiceRole.entities.CJDeadLetter.update(dead_letter_id, { status: resolution });
     return Response.json({ action, status: 'success', dead_letter_id, resolution });
   }
 
-  // ── mapping_summary ────────────────────────────────────────────────────
+  // ── mapping_summary ───────────────────────────────────────────────────────
   if (action === 'mapping_summary') {
     const all = await base44.asServiceRole.entities.CJMapping.filter({});
     const byType = {};
@@ -148,26 +157,21 @@ Deno.serve(async (req) => {
     });
   }
 
-  // ── full_validation_report ─────────────────────────────────────────────
+  // ── full_validation_report ────────────────────────────────────────────────
   if (action === 'full_validation_report') {
     const { test_cj_product_id } = body;
-    const report = {
-      timestamp: new Date().toISOString(),
-      checks: {},
-    };
+    const report = { timestamp: new Date().toISOString(), checks: {} };
 
-    // 1. Auth
     let token;
     try {
-      token = await getCJToken(email, apiKey);
-      report.checks.authentication = { status: 'PASS', message: 'CJ access token acquired successfully' };
+      token = await getCJToken(base44, email, apiKey);
+      report.checks.authentication = { status: 'PASS', message: 'CJ access token acquired (persistent session)' };
     } catch (e) {
       report.checks.authentication = { status: 'FAIL', error: e.message };
       report.overall = 'BLOCKED';
       return Response.json({ action, report });
     }
 
-    // 2. Product lookup
     if (test_cj_product_id) {
       try {
         const t0 = Date.now();
@@ -187,62 +191,31 @@ Deno.serve(async (req) => {
       report.checks.product_lookup = { status: 'SKIPPED', reason: 'No test_cj_product_id provided' };
     }
 
-    // 3. Mapping layer
     const allMappings = await base44.asServiceRole.entities.CJMapping.filter({});
     const byType = {};
     for (const m of allMappings) byType[m.entity_type] = (byType[m.entity_type] || 0) + 1;
-    report.checks.mapping_layer = {
-      status: 'PASS',
-      total_mappings: allMappings.length,
-      by_type: byType,
-    };
+    report.checks.mapping_layer = { status: 'PASS', total_mappings: allMappings.length, by_type: byType };
 
-    // 4. Dead-letter state
     const deadLetters = await base44.asServiceRole.entities.CJDeadLetter.filter({ status: 'pending_retry' });
     report.checks.dead_letter_queue = {
       status: deadLetters.length === 0 ? 'PASS' : 'WARN',
       pending_retry_count: deadLetters.length,
-      message: deadLetters.length > 0 ? 'Pending failures exist — review dead-letter queue' : 'No pending failures',
+      message: deadLetters.length > 0 ? 'Pending failures exist' : 'No pending failures',
     };
 
-    // 5. Order submission path
-    report.checks.order_submission = {
-      status: 'IMPLEMENTED',
-      message: 'submit_order action in cjOrders function — idempotent, with dead-letter fallback',
-      note: 'End-to-end test requires a real CJ product mapping and shipping address',
-    };
+    report.checks.order_submission = { status: 'IMPLEMENTED', message: 'submit_order in cjOrders — idempotent with dead-letter fallback' };
+    report.checks.tracking_fulfillment = { status: 'IMPLEMENTED', message: 'get_tracking and sync_fulfillment in cjOrders' };
 
-    // 6. Tracking/fulfillment path
-    report.checks.tracking_fulfillment = {
-      status: 'IMPLEMENTED',
-      message: 'get_tracking and sync_fulfillment actions in cjOrders function',
-      note: 'Requires a submitted CJ order ID to test end-to-end',
-    };
-
-    // 7. Reconciliation
-    const driftedMappings = await base44.asServiceRole.entities.CJMapping.filter({ sync_status: 'drift_detected' });
-    report.checks.reconciliation = {
-      status: 'IMPLEMENTED',
-      drift_detected_count: driftedMappings.length,
-      message: 'reconcile action in cjOrders function — polls all order mappings for drift',
-    };
-
-    // 8. Retry/failure handling
+    const drifted = await base44.asServiceRole.entities.CJMapping.filter({ sync_status: 'drift_detected' });
+    report.checks.reconciliation = { status: 'IMPLEMENTED', drift_detected_count: drifted.length };
     report.checks.failure_handling = {
       status: 'IMPLEMENTED',
       failure_classes: ['auth_failure', 'product_mapping_failure', 'order_submission_failure', 'tracking_retrieval_failure', 'malformed_response'],
-      message: 'All operations route failures to CJDeadLetter with structured classification',
     };
 
     const failCount = Object.values(report.checks).filter(c => c.status === 'FAIL').length;
     const warnCount = Object.values(report.checks).filter(c => c.status === 'WARN').length;
     report.overall = failCount > 0 ? 'FAIL' : warnCount > 0 ? 'WARN' : 'PASS';
-
-    console.log('CJ full validation report completed', {
-      overall: report.overall,
-      auth: report.checks.authentication.status,
-      product: report.checks.product_lookup.status,
-    });
 
     return Response.json({ action, report });
   }
