@@ -1,13 +1,14 @@
 /**
  * Shopify Admin API — Token Acquisition & Validation
  *
- * Implements the client_credentials grant for Shopify Dev Dashboard apps.
- * Token is persisted in ShopifySession entity to survive Deno isolate restarts.
+ * Shopify Partner/Dev Dashboard apps use the OAuth authorization code grant.
+ * The offline access token is issued once during app installation and does not expire.
+ * This function persists that token and provides refresh-awareness + validation.
  *
  * Actions:
- *   acquire_token  — fetch a fresh token via client_credentials and persist it
- *   get_token      — return persisted token, refreshing if expired
- *   validate       — confirm token is valid with a live authenticated Shopify read
+ *   store_token    — securely persist the offline access token from app installation
+ *   get_token      — return persisted token (auto-detects expiry for future online token support)
+ *   validate       — confirm token works with a live authenticated Shopify read
  *   revoke         — clear the persisted session
  *
  * Required env vars:
@@ -21,38 +22,11 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 const SHOPIFY_API_VERSION = '2026-01';
 const TOKEN_BUFFER_MS = 5 * 60 * 1000; // refresh 5 min before expiry
 
-// ── Token acquisition via client_credentials grant ────────────────────────
-async function fetchNewToken(domain, clientId, clientSecret) {
-  const url = `https://${domain}/admin/oauth/access_token`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      grant_type: 'client_credentials',
-      client_id: clientId,
-      client_secret: clientSecret,
-    }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Shopify token request failed [${res.status}]: ${text}`);
-  }
-
-  const data = await res.json();
-
-  if (!data.access_token) {
-    throw new Error(`Shopify token response missing access_token: ${JSON.stringify(data)}`);
-  }
-
-  return data;
-}
-
 // ── Persist or update session in DB ──────────────────────────────────────
 async function persistSession(base44, domain, tokenData) {
   const now = Date.now();
 
-  // expires_in is in seconds; some Shopify tokens do not expire (offline tokens)
+  // Offline tokens from Shopify OAuth do not expire (expires_in is absent)
   const expiresAt = tokenData.expires_in
     ? now + tokenData.expires_in * 1000
     : null;
@@ -68,34 +42,31 @@ async function persistSession(base44, domain, tokenData) {
   const existing = await base44.asServiceRole.entities.ShopifySession.filter({ shop_domain: domain });
   if (existing.length > 0) {
     await base44.asServiceRole.entities.ShopifySession.update(existing[0].id, sessionRecord);
-    console.log('ShopifySession updated', { domain, scope: sessionRecord.scope, expires_at: expiresAt });
+    console.log('ShopifySession updated', { domain, scope: sessionRecord.scope });
   } else {
     await base44.asServiceRole.entities.ShopifySession.create(sessionRecord);
-    console.log('ShopifySession created', { domain, scope: sessionRecord.scope, expires_at: expiresAt });
+    console.log('ShopifySession created', { domain, scope: sessionRecord.scope });
   }
 
   return sessionRecord;
 }
 
-// ── Get a valid token — refresh if expired ────────────────────────────────
-async function getValidToken(base44, domain, clientId, clientSecret) {
+// ── Get a valid token — returns cached if not expired ────────────────────
+async function getValidToken(base44, domain) {
   const now = Date.now();
   const sessions = await base44.asServiceRole.entities.ShopifySession.filter({ shop_domain: domain });
   const session = sessions[0];
 
-  // Token exists and is not expired (or has no expiry — offline token)
-  if (session?.access_token) {
-    const notExpired = !session.expires_at || session.expires_at > now + TOKEN_BUFFER_MS;
-    if (notExpired) {
-      return { token: session.access_token, source: 'cached', scope: session.scope };
-    }
-    console.log('Shopify token expired or near expiry — refreshing');
+  if (!session?.access_token) {
+    throw new Error('No Shopify token stored. Call store_token first with your offline access token.');
   }
 
-  // Acquire fresh token
-  const tokenData = await fetchNewToken(domain, clientId, clientSecret);
-  const persisted = await persistSession(base44, domain, tokenData);
-  return { token: persisted.access_token, source: 'refreshed', scope: persisted.scope };
+  // Offline tokens have no expiry — only check if expires_at is explicitly set
+  if (session.expires_at && session.expires_at < now + TOKEN_BUFFER_MS) {
+    throw new Error('Shopify token has expired. Store a fresh token via store_token.');
+  }
+
+  return { token: session.access_token, source: 'cached', scope: session.scope };
 }
 
 // ── Shopify API test call ─────────────────────────────────────────────────
@@ -150,31 +121,40 @@ Deno.serve(async (req) => {
   const body = await req.json();
   const { action } = body;
 
-  // ── acquire_token ─────────────────────────────────────────────────────────
-  if (action === 'acquire_token') {
-    const tokenData = await fetchNewToken(domain, clientId, clientSecret);
-    const persisted = await persistSession(base44, domain, tokenData);
-
+  // ── store_token ───────────────────────────────────────────────────────────
+  // Call this once with the offline token obtained during OAuth app installation.
+  if (action === 'store_token') {
+    const { access_token, scope } = body;
+    if (!access_token) {
+      return Response.json({ error: 'access_token required in request body' }, { status: 400 });
+    }
+    const persisted = await persistSession(base44, domain, {
+      access_token,
+      scope: scope || '',
+      token_type: 'Bearer',
+      expires_in: null, // offline tokens do not expire
+    });
     return Response.json({
       action,
       status: 'success',
-      token_acquired: true,
-      token_type: persisted.token_type,
+      token_stored: true,
+      shop_domain: domain,
       scope: persisted.scope,
-      expires_at: persisted.expires_at,
-      expires_at_human: persisted.expires_at ? new Date(persisted.expires_at).toISOString() : 'never (offline token)',
-      refresh_handling: 'Token persisted in ShopifySession entity. Auto-refreshed on next get_token or validate call when within 5 minutes of expiry.',
+      token_type: persisted.token_type,
+      expires_at: null,
+      note: 'Shopify offline tokens issued via OAuth do not expire. Token will remain valid until the app is uninstalled or the token is manually revoked.',
+      next_step: 'Call { "action": "validate" } to confirm the token works.',
     });
   }
 
   // ── get_token ─────────────────────────────────────────────────────────────
   if (action === 'get_token') {
-    const { token, source, scope } = await getValidToken(base44, domain, clientId, clientSecret);
+    const { token, source, scope } = await getValidToken(base44, domain);
     return Response.json({
       action,
       status: 'success',
       token_available: true,
-      source, // 'cached' or 'refreshed'
+      source,
       scope,
       domain,
     });
@@ -182,7 +162,7 @@ Deno.serve(async (req) => {
 
   // ── validate ──────────────────────────────────────────────────────────────
   if (action === 'validate') {
-    const { token, source, scope } = await getValidToken(base44, domain, clientId, clientSecret);
+    const { token, source, scope } = await getValidToken(base44, domain);
 
     let shopInfo;
     try {
