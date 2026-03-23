@@ -162,21 +162,19 @@ Deno.serve(async (req) => {
 
   // ── validate ──────────────────────────────────────────────────────────────
   if (action === 'validate') {
-    const { token, source, scope } = await getValidToken(base44, domain);
-
-    let shopInfo;
+    let tokenResult;
     try {
-      shopInfo = await shopifyTestRead(domain, token);
+      tokenResult = await getValidToken(base44, domain);
     } catch (e) {
       return Response.json({
         action,
-        token_acquired: true,
-        token_source: source,
-        scope,
-        api_test: { status: 'FAIL', error: e.message },
         overall: 'FAIL',
-      }, { status: 502 });
+        token_acquired: false,
+        error: e.message,
+        next_step: 'Call { "action": "store_token", "access_token": "shpat_..." } with your offline Admin API token from the Shopify Partner Dashboard.',
+      }, { status: 400 });
     }
+    const { token, source, scope } = tokenResult;
 
     return Response.json({
       action,
