@@ -1,17 +1,10 @@
 /**
  * Shopify Admin Service
- * Handles:
- *   - Webhook registration (idempotent, re-registerable)
- *   - Connectivity test (authenticated read)
- *   - Webhook list + validation
- *   - Dead-letter review
- *
- * POST / with JSON { action: ... }
+ * Reads access token from ShopifySession entity (set via OAuth).
+ * No SHOPIFY_ACCESS_TOKEN env var needed.
  *
  * Required env vars:
- *   SHOPIFY_ACCESS_TOKEN  — Admin API access token
- *   SHOPIFY_STORE_DOMAIN  — e.g. my-store.myshopify.com
- *   SHOPIFY_WEBHOOK_BASE_URL — base URL for webhook receiver function endpoint
+ *   SHOPIFY_STORE_DOMAIN — e.g. my-store.myshopify.com
  */
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
@@ -128,12 +121,10 @@ Deno.serve(async (req) => {
     return Response.json({ error: 'Method not allowed' }, { status: 405 });
   }
 
-  const accessToken = Deno.env.get('SHOPIFY_ACCESS_TOKEN');
   const domain = Deno.env.get('SHOPIFY_STORE_DOMAIN');
-  const webhookBaseUrl = Deno.env.get('SHOPIFY_WEBHOOK_BASE_URL');
-
-  if (!accessToken || !domain) {
-    return Response.json({ error: 'Missing SHOPIFY_ACCESS_TOKEN or SHOPIFY_STORE_DOMAIN' }, { status: 500 });
+  const appId = Deno.env.get('BASE44_APP_ID');
+  if (!domain) {
+    return Response.json({ error: 'Missing SHOPIFY_STORE_DOMAIN' }, { status: 500 });
   }
 
   const base44 = createClientFromRequest(req);
@@ -141,6 +132,16 @@ Deno.serve(async (req) => {
   if (!user || user.role !== 'admin') {
     return Response.json({ error: 'Admin access required' }, { status: 403 });
   }
+
+  // Read access token from ShopifySession entity (stored via OAuth)
+  const sessions = await base44.asServiceRole.entities.ShopifySession.filter({ shop_domain: domain });
+  const accessToken = sessions[0]?.access_token;
+  if (!accessToken) {
+    return Response.json({ error: 'No Shopify session found. Complete OAuth first at /shopify-oauth?action=start' }, { status: 401 });
+  }
+
+  // Webhook URL derived from app ID — no env var needed
+  const webhookBaseUrl = `https://api.base44.com/api/apps/${appId}/functions/shopifyWebhooks`;
 
   const body = await req.json();
   const { action } = body;
