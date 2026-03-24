@@ -76,17 +76,26 @@ async function verifySignedState(state, clientSecret) {
 // Note: URLSearchParams decodes values. Shopify signs decoded values — this is correct.
 
 async function validateHmac(rawQuery, clientSecret) {
-  const parsed = new URLSearchParams(rawQuery);
-  const receivedHmac = parsed.get('hmac');
-  if (!receivedHmac) return { valid: false, reason: 'hmac param missing' };
-
+  // Parse manually with decodeURIComponent to avoid URLSearchParams quirks
+  // (URLSearchParams decodes '+' as space, which breaks base64 values like 'host')
+  let receivedHmac = null;
   const pairs = [];
-  for (const [k, v] of parsed.entries()) {
-    if (k !== 'hmac') pairs.push([k, v]);
+
+  for (const part of rawQuery.split('&')) {
+    const eqIdx = part.indexOf('=');
+    if (eqIdx === -1) continue;
+    const key = decodeURIComponent(part.slice(0, eqIdx));
+    const val = decodeURIComponent(part.slice(eqIdx + 1));
+    if (key === 'hmac') {
+      receivedHmac = val;
+    } else {
+      pairs.push([key, val]);
+    }
   }
 
-  // Sort alphabetically by key (plain string sort, per Shopify spec)
-  pairs.sort((a, b) => a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0);
+  if (!receivedHmac) return { valid: false, reason: 'hmac param missing' };
+
+  pairs.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
 
   const message = pairs.map(([k, v]) => `${k}=${v}`).join('&');
   const computed = await hmacSha256Hex(clientSecret, message);
