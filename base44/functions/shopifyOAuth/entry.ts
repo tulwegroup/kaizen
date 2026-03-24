@@ -36,27 +36,24 @@ const SCOPES = [
 ].join(',');
 
 // ── HMAC validation (Shopify uses SHA-256, hex-encoded) ───────────────────
-async function validateHmac(params, clientSecret) {
-  const hmac = params.get('hmac');
-  if (!hmac) return false;
-
-  // Build sorted key=value pairs, excluding hmac
+// IMPORTANT: must use raw query string values, not URL-decoded URLSearchParams
+async function validateHmac(rawQuery, clientSecret) {
+  // Parse raw query string manually to preserve encoding
   const pairs = [];
-  for (const [k, v] of params.entries()) {
-    if (k !== 'hmac') pairs.push(`${k}=${v}`);
+  let hmac = null;
+  for (const part of rawQuery.split('&')) {
+    const eqIdx = part.indexOf('=');
+    const k = part.slice(0, eqIdx);
+    const v = part.slice(eqIdx + 1);
+    if (k === 'hmac') {
+      hmac = v;
+    } else {
+      pairs.push(`${k}=${v}`);
+    }
   }
+  if (!hmac) return false;
   pairs.sort();
   const message = pairs.join('&');
-
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw', encoder.encode(clientSecret),
-    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(message));
-  const computed = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
-  return computed === hmac;
-}
 
 // ── Simple state store using a signed token (no DB needed for ephemeral nonce) ─
 function generateState() {
