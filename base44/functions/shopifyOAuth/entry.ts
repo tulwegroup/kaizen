@@ -180,7 +180,10 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const callbackUrl = `${url.protocol}//${url.host}${url.pathname}`;
 
-  const rawQuery = url.search.startsWith('?') ? url.search.slice(1) : '';
+  // Extract raw query DIRECTLY from req.url to avoid any normalization by URL parser
+  const rawUrlStr = req.url;
+  const qIdx = rawUrlStr.indexOf('?');
+  const rawQuery = qIdx >= 0 ? rawUrlStr.slice(qIdx + 1) : '';
   const params   = url.searchParams;
 
   // ── POST → return stable URLs for Shopify Partner Dashboard ──────────────
