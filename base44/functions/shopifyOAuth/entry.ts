@@ -166,8 +166,9 @@ Deno.serve(async (req) => {
   const redirectUri  = Deno.env.get('SHOPIFY_REDIRECT_URI');
 
   if (!clientId || !clientSecret || !storeDomain) {
-    return Response.json({ error: 'Missing SHOPIFY_CLIENT_ID, SHOPIFY_CLIENT_SECRET, or SHOPIFY_STORE_DOMAIN' }, { status: 500 });
+    return Response.json({ error: 'Missing env vars. Required: SHOPIFY_CLIENT_ID, SHOPIFY_CLIENT_SECRET, SHOPIFY_STORE_DOMAIN' }, { status: 500 });
   }
+  // SHOPIFY_REDIRECT_URI is optional — falls back to dynamic Deno URL if not set
 
   // Dynamic URL fallback (only used for the setup info page — not for auth)
   const url = new URL(req.url);
