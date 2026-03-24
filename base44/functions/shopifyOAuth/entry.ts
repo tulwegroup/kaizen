@@ -240,5 +240,16 @@ Allowed redirect URL: ${functionBaseUrl}</pre>
     `);
   }
 
+  // POST: return function URL for setup reference
+  if (req.method === 'POST') {
+    return Response.json({
+      function_url: functionBaseUrl,
+      start_url: `${functionBaseUrl}?action=start`,
+      shopify_app_url: functionBaseUrl,
+      shopify_allowed_redirect_url: functionBaseUrl,
+      instructions: 'Set both App URL and Allowed redirect URL in Shopify Partner Dashboard to the function_url above, then visit start_url in your browser.',
+    });
+  }
+
   return Response.json({ error: 'Method not allowed' }, { status: 405 });
 });
