@@ -308,6 +308,43 @@ Deno.serve(async (req) => {
           total_price: payload.total_price,
         },
       });
+
+      // ── Auto-route to CJ Dropshipping ──────────────────────────────────────
+      const canonicalOrder = {
+        canonical_order_id: `order_shopify_${shopifyOrderId}`,
+        line_items: (payload.line_items || []).map(li => ({
+          canonical_variant_id: `variant_shopify_${li.variant_id}`,
+          quantity: li.quantity,
+        })),
+        shipping_address: payload.shipping_address ? {
+          name: payload.shipping_address.name,
+          address1: payload.shipping_address.address1,
+          address2: payload.shipping_address.address2 || '',
+          city: payload.shipping_address.city,
+          province: payload.shipping_address.province,
+          zip: payload.shipping_address.zip,
+          country_code: payload.shipping_address.country_code,
+          country_name: payload.shipping_address.country,
+          phone: payload.shipping_address.phone || '',
+        } : {},
+        remark: `Shopify order #${payload.order_number}`,
+      };
+
+      try {
+        const routeResult = await base44.asServiceRole.functions.invoke('orderRouter', {
+          action: 'route_order',
+          order: canonicalOrder,
+        });
+        console.log('Order routed to CJ', {
+          canonical_order_id: canonicalOrder.canonical_order_id,
+          result: routeResult,
+        });
+      } catch (routeErr) {
+        console.error('CJ routing failed — order saved, will need manual retry', {
+          canonical_order_id: canonicalOrder.canonical_order_id,
+          error: routeErr.message,
+        });
+      }
     } else if (existingMapping.length > 0) {
       await base44.asServiceRole.entities.ShopifyMapping.update(existingMapping[0].id, {
         sync_status: 'synced',
