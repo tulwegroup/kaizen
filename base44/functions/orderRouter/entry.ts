@@ -360,8 +360,9 @@ Deno.serve(async (req) => {
   if (!cjEmail || !cjApiKey) return Response.json({ error: 'Missing CJ_EMAIL or CJ_API_KEY' }, { status: 500 });
 
   const base44 = createClientFromRequest(req);
-  const user = await base44.auth.me();
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  // Allow both authenticated users and internal service-role invocations
+  const isAuthenticated = await base44.auth.isAuthenticated();
+  if (!isAuthenticated) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await req.json();
   const { action } = body;
