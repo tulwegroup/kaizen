@@ -193,17 +193,90 @@ Deno.serve(async (req) => {
   const rawQuery = qIdx >= 0 ? rawUrlStr.slice(qIdx + 1) : '';
   const params   = url.searchParams;
 
-  // ── POST → return stable URLs for Shopify Partner Dashboard ──────────────
+  // ── POST → actions from the stable frontend page ─────────────────────────
   if (req.method === 'POST') {
+    const body = await req.json().catch(() => ({}));
+    const { action: postAction } = body;
+
+    // get_auth_url — called by frontend to build the Shopify authorization URL
+    if (postAction === 'get_auth_url') {
+      const stableCallbackUrl = body.stable_callback_url;
+      if (!stableCallbackUrl) {
+        return Response.json({ error: 'stable_callback_url required' }, { status: 400 });
+      }
+      const state = await createSignedState(clientSecret);
+      const authUrl = new URL(`https://${storeDomain}/admin/oauth/authorize`);
+      authUrl.searchParams.set('client_id', clientId);
+      authUrl.searchParams.set('scope', SCOPES);
+      authUrl.searchParams.set('redirect_uri', stableCallbackUrl);
+      authUrl.searchParams.set('state', state);
+      authUrl.searchParams.set('grant_options[]', 'offline');
+      console.log('OAuth start via stable URL', { redirect_uri: stableCallbackUrl });
+      return Response.json({ auth_url: authUrl.toString() });
+    }
+
+    // oauth_callback — called by frontend after Shopify redirects back
+    if (postAction === 'oauth_callback') {
+      const { raw_query, stable_callback_url } = body;
+      if (!raw_query) {
+        return Response.json({ error: 'raw_query required' }, { status: 400 });
+      }
+
+      const cbParams = new URLSearchParams(raw_query);
+      const shop  = cbParams.get('shop') || '';
+      const code  = cbParams.get('code') || '';
+      const state = cbParams.get('state') || '';
+
+      const report = { stable_callback_url, raw_query, checks: {} };
+
+      // 1. HMAC
+      const hmacResult = await validateHmac(raw_query, clientSecret);
+      report.checks.hmac = {
+        passed: hmacResult.valid,
+        message_signed: hmacResult.message,
+        received: hmacResult.received_hmac,
+        computed: hmacResult.computed_hmac,
+        reason: hmacResult.reason,
+      };
+
+      // 2. State
+      const stateValid = await verifySignedState(state, clientSecret);
+      report.checks.state = { passed: stateValid, reason: stateValid ? 'ok' : 'state signature invalid' };
+
+      // 3. Shop
+      const shopValid = validateShop(shop);
+      report.checks.shop = { passed: shopValid, shop, reason: shopValid ? 'ok' : 'invalid shop domain' };
+
+      // 4. Shop match
+      const shopMatches = shop === storeDomain;
+      report.checks.shop_match = { passed: shopMatches, expected: storeDomain, received: shop };
+
+      console.log('OAuth callback (stable URL) checks', report.checks);
+
+      const allPassed = hmacResult.valid && stateValid && shopValid && shopMatches;
+      if (!allPassed) {
+        return Response.json({ success: false, report }, { status: 400 });
+      }
+
+      // Token exchange
+      let tokenData;
+      try {
+        tokenData = await exchangeCode(shop, clientId, clientSecret, code);
+      } catch (e) {
+        return Response.json({ success: false, error: e.message, report }, { status: 502 });
+      }
+
+      const base44sdk = createClientFromRequest(req);
+      await persistSession(base44sdk, shop, tokenData);
+
+      console.log('OAuth complete via stable URL', { shop, scope: tokenData.scope });
+      return Response.json({ success: true, shop, scope: tokenData.scope, report });
+    }
+
+    // Legacy: no action → return URLs
     return Response.json({
       app_type: 'Manual OAuth (non-embedded)',
-      stable_start_url: `${callbackUrl}?action=start`,
-      shopify_partner_dashboard: {
-        app_url: callbackUrl,
-        allowed_redirect_url: callbackUrl,
-        note: 'Set SHOPIFY_REDIRECT_URI env var to lock in this URL permanently',
-      },
-      note: 'callback URL is derived from the current Deno deployment URL',
+      stable_frontend_url: 'Use your app domain /shopify-oauth — see README',
     });
   }
 
