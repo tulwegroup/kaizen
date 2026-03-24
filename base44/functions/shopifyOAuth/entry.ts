@@ -1,26 +1,14 @@
 /**
  * Shopify OAuth — Authorization Code Grant Flow
  *
- * Two GET endpoints on the same function URL:
- *
- *   GET ?action=start
- *     → Generates state nonce, redirects browser to Shopify authorization page
- *
- *   GET ?code=...&shop=...&state=...&hmac=...   (Shopify callback)
- *     → Validates HMAC + state, exchanges code for offline access token,
- *       persists token in ShopifySession entity, runs validation call
+ * GET ?action=start           → redirect browser to Shopify authorization page
+ * GET ?code=...&shop=...&hmac=... → OAuth callback: validate, exchange, persist token
+ * POST (no body)              → return function URLs for setup reference
  *
  * Required env vars:
  *   SHOPIFY_CLIENT_ID
  *   SHOPIFY_CLIENT_SECRET
- *   SHOPIFY_STORE_DOMAIN   — e.g. my-store.myshopify.com
- *
- * SETUP INSTRUCTIONS:
- *   1. Get this function's URL from Dashboard → Code → Functions → shopifyOAuth
- *   2. In Shopify Partner Dashboard → App setup:
- *        App URL              → <this function URL>
- *        Allowed redirect URLs → <this function URL>
- *   3. Visit <this function URL>?action=start  to trigger the OAuth flow
+ *   SHOPIFY_STORE_DOMAIN
  */
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
@@ -35,12 +23,12 @@ const SCOPES = [
   'read_customers',
 ].join(',');
 
-// ── HMAC validation (Shopify uses SHA-256, hex-encoded) ───────────────────
-// IMPORTANT: must use raw query string values, not URL-decoded URLSearchParams
+// ── HMAC validation ───────────────────────────────────────────────────────
+// Uses raw query string to preserve exact encoding Shopify signed
 async function validateHmac(rawQuery, clientSecret) {
-  // Parse raw query string manually to preserve encoding
   const pairs = [];
   let hmac = null;
+
   for (const part of rawQuery.split('&')) {
     const eqIdx = part.indexOf('=');
     const k = part.slice(0, eqIdx);
@@ -51,18 +39,28 @@ async function validateHmac(rawQuery, clientSecret) {
       pairs.push(`${k}=${v}`);
     }
   }
+
   if (!hmac) return false;
   pairs.sort();
   const message = pairs.join('&');
 
-// ── Simple state store using a signed token (no DB needed for ephemeral nonce) ─
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw', encoder.encode(clientSecret),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(message));
+  const computed = Array.from(new Uint8Array(sig))
+    .map(b => b.toString(16).padStart(2, '0')).join('');
+  return computed === hmac;
+}
+
 function generateState() {
   const arr = new Uint8Array(16);
   crypto.getRandomValues(arr);
   return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// ── Exchange code for access token ────────────────────────────────────────
 async function exchangeCode(shop, clientId, clientSecret, code) {
   const res = await fetch(`https://${shop}/admin/oauth/access_token`, {
     method: 'POST',
@@ -76,13 +74,12 @@ async function exchangeCode(shop, clientId, clientSecret, code) {
   return res.json();
 }
 
-// ── Persist session ───────────────────────────────────────────────────────
 async function persistSession(base44, domain, tokenData) {
   const sessionRecord = {
     shop_domain: domain,
     access_token: tokenData.access_token,
     token_type: 'Bearer',
-    expires_at: null, // offline tokens never expire
+    expires_at: null,
     scope: tokenData.scope || '',
   };
   const existing = await base44.asServiceRole.entities.ShopifySession.filter({ shop_domain: domain });
@@ -95,7 +92,6 @@ async function persistSession(base44, domain, tokenData) {
   return sessionRecord;
 }
 
-// ── Validation call: GET /shop.json ───────────────────────────────────────
 async function validateToken(domain, accessToken) {
   const res = await fetch(`https://${domain}/admin/api/${SHOPIFY_API_VERSION}/shop.json`, {
     headers: { 'X-Shopify-Access-Token': accessToken, 'Content-Type': 'application/json' },
@@ -116,13 +112,12 @@ async function validateToken(domain, accessToken) {
   };
 }
 
-// ── HTML response helpers ─────────────────────────────────────────────────
 function htmlPage(title, bodyHtml) {
   return new Response(
     `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
     <style>body{font-family:monospace;max-width:700px;margin:60px auto;padding:20px;background:#f9f9f9}
     pre{background:#111;color:#0f0;padding:20px;border-radius:8px;white-space:pre-wrap;word-break:break-all}
-    h2{color:#111}p{color:#444}</style></head>
+    h2{color:#111}p{color:#444}a{color:#0066cc}</style></head>
     <body>${bodyHtml}</body></html>`,
     { headers: { 'Content-Type': 'text/html' } }
   );
@@ -140,12 +135,24 @@ Deno.serve(async (req) => {
 
   const url = new URL(req.url);
   const params = url.searchParams;
-
-  // Derive the public base URL of this function (used as redirect_uri)
   const functionBaseUrl = `${url.protocol}//${url.host}${url.pathname}`;
 
-  // ── GET ?action=start → kick off OAuth ───────────────────────────────────
-  if (req.method === 'GET' && params.get('action') === 'start') {
+  // POST → return URLs for setup reference
+  if (req.method === 'POST') {
+    return Response.json({
+      function_url: functionBaseUrl,
+      start_url: `${functionBaseUrl}?action=start`,
+      shopify_app_url: functionBaseUrl,
+      shopify_allowed_redirect_url: functionBaseUrl,
+    });
+  }
+
+  if (req.method !== 'GET') {
+    return Response.json({ error: 'Method not allowed' }, { status: 405 });
+  }
+
+  // GET ?action=start → redirect to Shopify authorization page
+  if (params.get('action') === 'start') {
     const state = generateState();
     const authUrl = new URL(`https://${expectedDomain}/admin/oauth/authorize`);
     authUrl.searchParams.set('client_id', clientId);
@@ -153,29 +160,27 @@ Deno.serve(async (req) => {
     authUrl.searchParams.set('redirect_uri', functionBaseUrl);
     authUrl.searchParams.set('state', state);
     authUrl.searchParams.set('grant_options[]', 'offline');
-
-    console.log('OAuth start — redirecting to Shopify', { state, redirect_uri: functionBaseUrl });
-
+    console.log('OAuth start', { state, redirect_uri: functionBaseUrl });
     return Response.redirect(authUrl.toString(), 302);
   }
 
-  // ── GET ?code=...&shop=...&state=...&hmac=... → OAuth callback ────────────
-  if (req.method === 'GET' && params.get('code') && params.get('shop')) {
+  // GET ?code=...&shop=... → OAuth callback
+  if (params.get('code') && params.get('shop')) {
     const shop = params.get('shop');
     const code = params.get('code');
 
-    // 1. Validate shop matches expected domain
     if (shop !== expectedDomain) {
       return htmlPage('OAuth Error', `<h2>❌ Shop mismatch</h2><p>Expected: <b>${expectedDomain}</b><br>Got: <b>${shop}</b></p>`);
     }
 
-    // 2. Validate HMAC
-    const hmacValid = await validateHmac(params, clientSecret);
+    // Validate HMAC using raw query string
+    const rawQuery = url.search.slice(1); // strip leading '?'
+    const hmacValid = await validateHmac(rawQuery, clientSecret);
     if (!hmacValid) {
-      return htmlPage('OAuth Error', `<h2>❌ HMAC validation failed</h2><p>Request may have been tampered with.</p>`);
+      console.error('HMAC failed', { rawQuery });
+      return htmlPage('OAuth Error', `<h2>❌ HMAC validation failed</h2><p>Request may have been tampered with.</p><pre>Raw query: ${rawQuery}</pre>`);
     }
 
-    // 3. Exchange code for token
     let tokenData;
     try {
       tokenData = await exchangeCode(shop, clientId, clientSecret, code);
@@ -183,11 +188,9 @@ Deno.serve(async (req) => {
       return htmlPage('OAuth Error', `<h2>❌ Code exchange failed</h2><pre>${e.message}</pre>`);
     }
 
-    // 4. Persist token
     const base44 = createClientFromRequest(req);
     const session = await persistSession(base44, shop, tokenData);
 
-    // 5. Validate with live API call
     let shopInfo;
     let validationStatus = 'PASS';
     let validationError = null;
@@ -203,7 +206,6 @@ Deno.serve(async (req) => {
       token_stored: true,
       shop_domain: shop,
       scope: session.scope,
-      token_type: session.token_type,
       token_expiry: 'Never (offline token)',
       validation: validationStatus === 'PASS'
         ? { status: 'PASS', shop: shopInfo }
@@ -217,36 +219,15 @@ Deno.serve(async (req) => {
       <p>Shop: <b>${shopInfo?.shop_name || shop}</b> | Scopes: <b>${session.scope}</b></p>
       <p>Validation: <b style="color:${validationStatus === 'PASS' ? 'green' : 'red'}">${validationStatus}</b></p>
       <pre>${JSON.stringify(result, null, 2)}</pre>
-      <p style="margin-top:20px;color:#666">This page confirms the offline token is stored. You can close this window.</p>
     `);
   }
 
-  // ── GET (no params) → show setup instructions ─────────────────────────────
-  if (req.method === 'GET') {
-    return htmlPage('Shopify OAuth Setup', `
-      <h2>Shopify OAuth Setup</h2>
-      <p>This function handles the Shopify authorization code flow.</p>
-      <h3>Step 1 — Configure your Shopify app</h3>
-      <p>In <b>Shopify Partner Dashboard → App setup</b>, set:</p>
-      <pre>App URL:              ${functionBaseUrl}
-Allowed redirect URL: ${functionBaseUrl}</pre>
-      <h3>Step 2 — Start the OAuth flow</h3>
-      <p>Visit this URL in your browser:<br>
-      <a href="${functionBaseUrl}?action=start">${functionBaseUrl}?action=start</a></p>
-      <p>You will be redirected to Shopify to authorize the app. After approval, the token will be stored automatically.</p>
-    `);
-  }
-
-  // POST: return function URL for setup reference
-  if (req.method === 'POST') {
-    return Response.json({
-      function_url: functionBaseUrl,
-      start_url: `${functionBaseUrl}?action=start`,
-      shopify_app_url: functionBaseUrl,
-      shopify_allowed_redirect_url: functionBaseUrl,
-      instructions: 'Set both App URL and Allowed redirect URL in Shopify Partner Dashboard to the function_url above, then visit start_url in your browser.',
-    });
-  }
-
-  return Response.json({ error: 'Method not allowed' }, { status: 405 });
+  // GET (no params) → setup instructions
+  return htmlPage('Shopify OAuth Setup', `
+    <h2>Shopify OAuth Setup</h2>
+    <p>In <b>Shopify Partner Dashboard → App setup</b>, set both fields to:</p>
+    <pre>${functionBaseUrl}</pre>
+    <h3>Start the OAuth flow:</h3>
+    <p><a href="${functionBaseUrl}?action=start">${functionBaseUrl}?action=start</a></p>
+  `);
 });
