@@ -208,16 +208,21 @@ Deno.serve(async (req) => {
     return Response.json({ error: 'Method not allowed' }, { status: 405 });
   }
 
-  const accessToken = Deno.env.get('SHOPIFY_ACCESS_TOKEN');
   const domain = Deno.env.get('SHOPIFY_STORE_DOMAIN');
-
-  if (!accessToken || !domain) {
-    return Response.json({ error: 'Missing SHOPIFY_ACCESS_TOKEN or SHOPIFY_STORE_DOMAIN' }, { status: 500 });
+  if (!domain) {
+    return Response.json({ error: 'Missing SHOPIFY_STORE_DOMAIN' }, { status: 500 });
   }
 
   const base44 = createClientFromRequest(req);
   const user = await base44.auth.me();
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
+  // Read access token from ShopifySession (stored via OAuth)
+  const sessions = await base44.asServiceRole.entities.ShopifySession.filter({ shop_domain: domain });
+  const accessToken = sessions[0]?.access_token;
+  if (!accessToken) {
+    return Response.json({ error: 'No Shopify session found. Complete OAuth first.' }, { status: 401 });
+  }
 
   const body = await req.json();
   const { action, product, canonical_variant_id, price, compare_at_price } = body;
