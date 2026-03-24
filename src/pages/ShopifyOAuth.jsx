@@ -57,7 +57,9 @@ export default function ShopifyOAuth() {
     }
 
     handle().catch((e) => {
-      setResult({ error: e.message });
+      // Extract actual backend response body if available (axios error)
+      const detail = e?.response?.data || { error: e.message };
+      setResult(detail);
       setStatus("error");
     });
   }, []);
