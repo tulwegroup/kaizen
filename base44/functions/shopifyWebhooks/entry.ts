@@ -176,8 +176,8 @@ Deno.serve(async (req) => {
     return Response.json({ error: 'Method not allowed' }, { status: 405 });
   }
 
-  const apiSecret = Deno.env.get('SHOPIFY_CLIENT_SECRET');
-  const shopDomain = Deno.env.get('SHOPIFY_STORE_DOMAIN');
+  const apiSecret = Deno.env.get('SHOPIFY_CLIENT_SECRET')?.trim();
+  const shopDomain = Deno.env.get('SHOPIFY_STORE_DOMAIN')?.trim();
 
   if (!apiSecret || !shopDomain) {
     console.error('Missing required env vars: SHOPIFY_CLIENT_SECRET, SHOPIFY_STORE_DOMAIN');
