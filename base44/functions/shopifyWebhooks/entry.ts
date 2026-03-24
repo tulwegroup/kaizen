@@ -177,6 +177,7 @@ Deno.serve(async (req) => {
   }
 
   const apiSecret = Deno.env.get('SHOPIFY_CLIENT_SECRET')?.trim();
+  const webhookSecret = Deno.env.get('SHOPIFY_WEBHOOK_SECRET')?.trim();
   const shopDomain = Deno.env.get('SHOPIFY_STORE_DOMAIN')?.trim();
 
   if (!apiSecret || !shopDomain) {
@@ -197,13 +198,19 @@ Deno.serve(async (req) => {
     return Response.json({ error: 'Missing HMAC' }, { status: 401 });
   }
 
-  const isValid = await validateHmac(rawBody, hmacHeader, apiSecret);
+  const isValidWithClientSecret = await validateHmac(rawBody, hmacHeader, apiSecret);
+  const isValidWithWebhookSecret = webhookSecret ? await validateHmac(rawBody, hmacHeader, webhookSecret) : false;
+  const isValid = isValidWithClientSecret || isValidWithWebhookSecret;
+
   console.log('HMAC check', {
     topic,
     webhookId,
     isValid,
+    validWithClientSecret: isValidWithClientSecret,
+    validWithWebhookSecret: isValidWithWebhookSecret,
     hmacHeader,
-    secretPrefix: apiSecret?.substring(0, 6),
+    clientSecretPrefix: apiSecret?.substring(0, 6),
+    webhookSecretPrefix: webhookSecret?.substring(0, 6),
     bodyLength: rawBody.length,
   });
   if (!isValid) {
