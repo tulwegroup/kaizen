@@ -38,6 +38,13 @@ async function validateHmac(rawQuery, clientSecret) {
   pairs.sort();
   const message = pairs.join('&');
 
+  console.log('HMAC debug', {
+    message,
+    hmac,
+    secretLength: clientSecret.length,
+    secretFirstChars: clientSecret.slice(0, 4),
+  });
+
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     'raw', encoder.encode(clientSecret),
