@@ -136,6 +136,8 @@ Deno.serve(async (req) => {
   const url = new URL(req.url);
   const params = url.searchParams;
   const functionBaseUrl = `${url.protocol}//${url.host}${url.pathname}`;
+  // Extract raw query string directly from req.url to avoid any URL normalization
+  const rawQuery = req.url.includes('?') ? req.url.split('?')[1] : '';
 
   // POST → return URLs for setup reference
   if (req.method === 'POST') {
