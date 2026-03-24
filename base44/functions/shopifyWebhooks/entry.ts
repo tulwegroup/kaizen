@@ -294,7 +294,7 @@ Deno.serve(async (req) => {
       shop_domain: receivedShopDomain,
     });
 
-    if (existingMapping.length === 0) {
+    if (existingMapping.length === 0 && topic === 'orders/create') {
       await base44.asServiceRole.entities.ShopifyMapping.create({
         entity_type: 'order',
         canonical_id: `order_shopify_${shopifyOrderId}`,
@@ -308,7 +308,7 @@ Deno.serve(async (req) => {
           total_price: payload.total_price,
         },
       });
-    } else {
+    } else if (existingMapping.length > 0) {
       await base44.asServiceRole.entities.ShopifyMapping.update(existingMapping[0].id, {
         sync_status: 'synced',
         last_synced_at: new Date().toISOString(),
