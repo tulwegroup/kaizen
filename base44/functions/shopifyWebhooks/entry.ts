@@ -176,7 +176,7 @@ Deno.serve(async (req) => {
     return Response.json({ error: 'Method not allowed' }, { status: 405 });
   }
 
-  const apiSecret = Deno.env.get('SHOPIFY_WEBHOOK_SECRET');
+  const apiSecret = Deno.env.get('SHOPIFY_CLIENT_SECRET');
   const shopDomain = Deno.env.get('SHOPIFY_STORE_DOMAIN');
 
   if (!apiSecret || !shopDomain) {
@@ -198,6 +198,14 @@ Deno.serve(async (req) => {
   }
 
   const isValid = await validateHmac(rawBody, hmacHeader, apiSecret);
+  console.log('HMAC check', {
+    topic,
+    webhookId,
+    isValid,
+    hmacHeader,
+    secretPrefix: apiSecret?.substring(0, 6),
+    bodyLength: rawBody.length,
+  });
   if (!isValid) {
     console.warn('HMAC validation failed', { topic, webhookId });
     return Response.json({ error: 'HMAC validation failed' }, { status: 401 });
