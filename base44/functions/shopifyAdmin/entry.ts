@@ -141,7 +141,7 @@ Deno.serve(async (req) => {
   }
 
   // Webhook URL derived from app ID — no env var needed
-  const webhookBaseUrl = `https://api.base44.com/api/apps/${appId}/functions/shopifyWebhooks`;
+  const webhookBaseUrl = `https://app--${appId}.base44.app/api/apps/${appId}/functions/shopifyWebhooks`;
 
   const body = await req.json();
   const { action } = body;
