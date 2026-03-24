@@ -24,35 +24,45 @@ const SCOPES = [
 ].join(',');
 
 // ── HMAC validation ───────────────────────────────────────────────────────
-// Shopify signs using URL-decoded key=value pairs, sorted, joined with &
+// Per Shopify docs: decode params, re-escape % & = in values, sort, join, HMAC-SHA256
+function shopifyEscape(str) {
+  return str.replace(/%/g, '%25').replace(/&/g, '%26').replace(/=/g, '%3D');
+}
+
+async function hmacSha256Hex(secret, message) {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw', encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(message));
+  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 async function validateHmac(rawQuery, clientSecret) {
-  // Use URLSearchParams for proper decoding — this matches how Shopify builds the message
   const parsed = new URLSearchParams(rawQuery);
   const hmac = parsed.get('hmac');
   if (!hmac) return false;
 
+  // Build escaped key=value pairs (Shopify re-escapes % & = in decoded values)
   const pairs = [];
   for (const [k, v] of parsed.entries()) {
-    if (k !== 'hmac') pairs.push(`${k}=${v}`);
+    if (k !== 'hmac') pairs.push(`${shopifyEscape(k)}=${shopifyEscape(v)}`);
   }
   pairs.sort();
   const message = pairs.join('&');
 
+  const computed = await hmacSha256Hex(clientSecret, message);
+
   console.log('HMAC debug', {
     message,
-    hmac,
-    secretLength: clientSecret.length,
-    secretFirstChars: clientSecret.slice(0, 4),
+    hmac_received: hmac,
+    hmac_computed: computed,
+    match: computed === hmac,
+    secret_len: clientSecret.length,
+    secret_prefix: clientSecret.slice(0, 6),
   });
 
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    'raw', encoder.encode(clientSecret),
-    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(message));
-  const computed = Array.from(new Uint8Array(sig))
-    .map(b => b.toString(16).padStart(2, '0')).join('');
   return computed === hmac;
 }
 
