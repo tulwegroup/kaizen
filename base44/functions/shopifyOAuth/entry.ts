@@ -163,17 +163,14 @@ Deno.serve(async (req) => {
   const clientId     = Deno.env.get('SHOPIFY_CLIENT_ID');
   const clientSecret = Deno.env.get('SHOPIFY_CLIENT_SECRET');
   const storeDomain  = Deno.env.get('SHOPIFY_STORE_DOMAIN');
-  const redirectUri  = Deno.env.get('SHOPIFY_REDIRECT_URI');
 
   if (!clientId || !clientSecret || !storeDomain) {
     return Response.json({ error: 'Missing env vars. Required: SHOPIFY_CLIENT_ID, SHOPIFY_CLIENT_SECRET, SHOPIFY_STORE_DOMAIN' }, { status: 500 });
   }
   // SHOPIFY_REDIRECT_URI is optional — falls back to dynamic Deno URL if not set
 
-  // Dynamic URL fallback (only used for the setup info page — not for auth)
   const url = new URL(req.url);
-  const dynamicBase = `${url.protocol}//${url.host}${url.pathname}`;
-  const callbackUrl = redirectUri || dynamicBase;
+  const callbackUrl = `${url.protocol}//${url.host}${url.pathname}`;
 
   const rawQuery = url.search.startsWith('?') ? url.search.slice(1) : '';
   const params   = url.searchParams;
@@ -188,7 +185,7 @@ Deno.serve(async (req) => {
         allowed_redirect_url: callbackUrl,
         note: 'Set SHOPIFY_REDIRECT_URI env var to lock in this URL permanently',
       },
-      redirect_uri_source: redirectUri ? 'SHOPIFY_REDIRECT_URI env var (stable)' : 'dynamic (set SHOPIFY_REDIRECT_URI to stabilize)',
+      note: 'callback URL is derived from the current Deno deployment URL',
     });
   }
 
@@ -309,7 +306,7 @@ Deno.serve(async (req) => {
   }
 
   // ── GET (no params) → setup instructions ──────────────────────────────────
-  const uriSource = redirectUri ? 'SHOPIFY_REDIRECT_URI env var (stable ✅)' : 'dynamic URL (set SHOPIFY_REDIRECT_URI to stabilize ⚠️)';
+  const uriSource = 'dynamic (current Deno deployment URL)';
   return html('Shopify OAuth Setup', `
     <h2>Shopify OAuth Setup</h2>
     <p><strong>App type:</strong> Manual OAuth (non-embedded)</p>
@@ -330,7 +327,6 @@ Deno.serve(async (req) => {
     <h3>Required env vars:</h3>
     <pre>SHOPIFY_CLIENT_ID      ✅ set
 SHOPIFY_CLIENT_SECRET  ✅ set
-SHOPIFY_STORE_DOMAIN   ✅ set
-SHOPIFY_REDIRECT_URI   ${redirectUri ? '✅ set → ' + redirectUri : '⚠️  NOT SET — set this to lock in a stable URL'}</pre>
+SHOPIFY_STORE_DOMAIN   ✅ set</pre>
   `);
 });
