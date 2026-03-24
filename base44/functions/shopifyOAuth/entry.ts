@@ -24,23 +24,17 @@ const SCOPES = [
 ].join(',');
 
 // ── HMAC validation ───────────────────────────────────────────────────────
-// Uses raw query string to preserve exact encoding Shopify signed
+// Shopify signs using URL-decoded key=value pairs, sorted, joined with &
 async function validateHmac(rawQuery, clientSecret) {
-  const pairs = [];
-  let hmac = null;
-
-  for (const part of rawQuery.split('&')) {
-    const eqIdx = part.indexOf('=');
-    const k = part.slice(0, eqIdx);
-    const v = part.slice(eqIdx + 1);
-    if (k === 'hmac') {
-      hmac = v;
-    } else {
-      pairs.push(`${k}=${v}`);
-    }
-  }
-
+  // Use URLSearchParams for proper decoding — this matches how Shopify builds the message
+  const parsed = new URLSearchParams(rawQuery);
+  const hmac = parsed.get('hmac');
   if (!hmac) return false;
+
+  const pairs = [];
+  for (const [k, v] of parsed.entries()) {
+    if (k !== 'hmac') pairs.push(`${k}=${v}`);
+  }
   pairs.sort();
   const message = pairs.join('&');
 
