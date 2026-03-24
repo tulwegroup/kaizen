@@ -176,12 +176,22 @@ Deno.serve(async (req) => {
     }
     const { token, source, scope } = tokenResult;
 
+    let shopInfo;
+    try {
+      shopInfo = await shopifyTestRead(domain, token);
+    } catch (e) {
+      return Response.json({
+        action, overall: 'FAIL', token_acquired: true,
+        api_test: { status: 'FAIL', error: e.message },
+      }, { status: 400 });
+    }
+
     return Response.json({
       action,
       overall: 'PASS',
       token_acquired: true,
       token_source: source,
-      refresh_handling: 'Implemented — token persisted in ShopifySession entity, auto-refreshed 5 min before expiry on every call',
+      refresh_handling: 'Implemented — token persisted in ShopifySession entity',
       scope,
       api_test: {
         status: 'PASS',
