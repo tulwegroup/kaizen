@@ -168,9 +168,9 @@ function html(title, body) {
 
 // ── Main handler ──────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
-  const clientId     = Deno.env.get('SHOPIFY_CLIENT_ID');
-  const clientSecret = Deno.env.get('SHOPIFY_CLIENT_SECRET');
-  const storeDomain  = Deno.env.get('SHOPIFY_STORE_DOMAIN');
+  const clientId     = Deno.env.get('SHOPIFY_CLIENT_ID')?.trim();
+  const clientSecret = Deno.env.get('SHOPIFY_CLIENT_SECRET')?.trim();
+  const storeDomain  = Deno.env.get('SHOPIFY_STORE_DOMAIN')?.trim();
 
   if (!clientId || !clientSecret || !storeDomain) {
     return Response.json({ error: 'Missing env vars. Required: SHOPIFY_CLIENT_ID, SHOPIFY_CLIENT_SECRET, SHOPIFY_STORE_DOMAIN' }, { status: 500 });
