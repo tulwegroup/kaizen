@@ -175,8 +175,7 @@ Deno.serve(async (req) => {
       return htmlPage('OAuth Error', `<h2>❌ Shop mismatch</h2><p>Expected: <b>${expectedDomain}</b><br>Got: <b>${shop}</b></p>`);
     }
 
-    // Validate HMAC using raw query string
-    const rawQuery = url.search.slice(1); // strip leading '?'
+    // Validate HMAC using raw query string (extracted directly from req.url, no normalization)
     const hmacValid = await validateHmac(rawQuery, clientSecret);
     if (!hmacValid) {
       console.error('HMAC failed', { rawQuery });
