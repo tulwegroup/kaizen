@@ -176,7 +176,7 @@ Deno.serve(async (req) => {
     return Response.json({ error: 'Method not allowed' }, { status: 405 });
   }
 
-  const apiSecret = Deno.env.get('SHOPIFY_CLIENT_SECRET');
+  const apiSecret = Deno.env.get('SHOPIFY_WEBHOOK_SECRET');
   const shopDomain = Deno.env.get('SHOPIFY_STORE_DOMAIN');
 
   if (!apiSecret || !shopDomain) {
