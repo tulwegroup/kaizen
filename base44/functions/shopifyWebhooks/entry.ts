@@ -176,11 +176,11 @@ Deno.serve(async (req) => {
     return Response.json({ error: 'Method not allowed' }, { status: 405 });
   }
 
-  const apiSecret = Deno.env.get('SHOPIFY_API_SECRET');
+  const apiSecret = Deno.env.get('SHOPIFY_CLIENT_SECRET');
   const shopDomain = Deno.env.get('SHOPIFY_STORE_DOMAIN');
 
   if (!apiSecret || !shopDomain) {
-    console.error('Missing required env vars: SHOPIFY_API_SECRET, SHOPIFY_STORE_DOMAIN');
+    console.error('Missing required env vars: SHOPIFY_CLIENT_SECRET, SHOPIFY_STORE_DOMAIN');
     return Response.json({ error: 'Service misconfigured' }, { status: 500 });
   }
 
