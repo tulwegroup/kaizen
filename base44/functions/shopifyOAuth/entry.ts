@@ -76,18 +76,17 @@ async function verifySignedState(state, clientSecret) {
 // Note: URLSearchParams decodes values. Shopify signs decoded values — this is correct.
 
 async function validateHmac(rawQuery, clientSecret) {
-  // Parse manually with decodeURIComponent to avoid URLSearchParams quirks
-  // (URLSearchParams decodes '+' as space, which breaks base64 values like 'host')
+  // Use raw (percent-encoded) values — Shopify signs the raw query string, not decoded values
   let receivedHmac = null;
   const pairs = [];
 
   for (const part of rawQuery.split('&')) {
     const eqIdx = part.indexOf('=');
     if (eqIdx === -1) continue;
-    const key = decodeURIComponent(part.slice(0, eqIdx));
-    const val = decodeURIComponent(part.slice(eqIdx + 1));
+    const key = part.slice(0, eqIdx);         // keys are plain ASCII, no decoding needed
+    const val = part.slice(eqIdx + 1);        // keep raw percent-encoded value
     if (key === 'hmac') {
-      receivedHmac = val;
+      receivedHmac = val;                      // hmac is hex, no encoding
     } else {
       pairs.push([key, val]);
     }
