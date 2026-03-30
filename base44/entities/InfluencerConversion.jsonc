@@ -1,0 +1,41 @@
+{
+  "name": "InfluencerConversion",
+  "type": "object",
+  "properties": {
+    "influencer_id": {
+      "type": "string",
+      "description": "Reference to InfluencerProfile"
+    },
+    "campaign_id": {
+      "type": "string",
+      "description": "Reference to InfluencerCampaign"
+    },
+    "shopify_order_id": {
+      "type": "string",
+      "description": "Order that came from this influencer's code/link"
+    },
+    "discount_code_used": {
+      "type": "string"
+    },
+    "conversion_value": {
+      "type": "number",
+      "description": "Order total"
+    },
+    "commission_earned": {
+      "type": "number",
+      "description": "Calculated commission"
+    },
+    "conversion_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "utm_source, utm_campaign, etc."
+    }
+  },
+  "required": [
+    "influencer_id",
+    "shopify_order_id"
+  ]
+}

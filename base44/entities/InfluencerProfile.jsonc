@@ -1,0 +1,82 @@
+{
+  "name": "InfluencerProfile",
+  "type": "object",
+  "properties": {
+    "platform": {
+      "type": "string",
+      "enum": [
+        "tiktok",
+        "instagram",
+        "youtube"
+      ],
+      "description": "Social platform"
+    },
+    "platform_username": {
+      "type": "string",
+      "description": "Handle/username on platform"
+    },
+    "platform_user_id": {
+      "type": "string",
+      "description": "Platform's unique user ID"
+    },
+    "follower_count": {
+      "type": "number",
+      "description": "Current follower count"
+    },
+    "engagement_rate": {
+      "type": "number",
+      "description": "Avg engagement % (0-100)"
+    },
+    "engagement_score": {
+      "type": "number",
+      "description": "Computed 0-100 quality score"
+    },
+    "niche": {
+      "type": "string",
+      "enum": [
+        "fashion",
+        "beauty",
+        "lifestyle",
+        "tech",
+        "fitness",
+        "home",
+        "other"
+      ],
+      "description": "Primary content category"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "discovered",
+        "contacted",
+        "accepted",
+        "active",
+        "inactive"
+      ],
+      "default": "discovered"
+    },
+    "contact_email": {
+      "type": "string"
+    },
+    "contact_instagram": {
+      "type": "string"
+    },
+    "discount_code": {
+      "type": "string",
+      "description": "Unique discount code for tracking"
+    },
+    "referral_link": {
+      "type": "string",
+      "description": "Tracking URL with UTM params"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Bio, verified status, last_sync_date, etc."
+    }
+  },
+  "required": [
+    "platform",
+    "platform_username",
+    "platform_user_id"
+  ]
+}

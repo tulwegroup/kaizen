@@ -1,0 +1,62 @@
+{
+  "name": "InfluencerCampaign",
+  "type": "object",
+  "properties": {
+    "campaign_name": {
+      "type": "string"
+    },
+    "influencer_id": {
+      "type": "string",
+      "description": "Reference to InfluencerProfile"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "outreach_sent",
+        "accepted",
+        "active",
+        "completed",
+        "declined"
+      ],
+      "default": "draft"
+    },
+    "discount_code": {
+      "type": "string",
+      "description": "Unique code for this campaign"
+    },
+    "commission_rate": {
+      "type": "number",
+      "description": "% commission or flat amount"
+    },
+    "commission_type": {
+      "type": "string",
+      "enum": [
+        "percentage",
+        "flat",
+        "per_sale"
+      ],
+      "default": "percentage"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "end_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "message_sent": {
+      "type": "string",
+      "description": "Template message that was sent"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "outreach_date, response_date, notes, etc."
+    }
+  },
+  "required": [
+    "campaign_name",
+    "influencer_id"
+  ]
+}
