@@ -5,6 +5,57 @@
 
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.21';
 
+const CJ_BASE = 'https://developers.cjdropshipping.com/api2.0/v1';
+
+async function getCJToken(base44, email, apiKey) {
+  const now = Date.now();
+  const sessions = await base44.asServiceRole.entities.CJSession.filter({ email });
+  const session = sessions[0];
+
+  if (session?.access_token && session.expires_at > now + 300_000) {
+    return session.access_token;
+  }
+
+  const res = await fetch(`${CJ_BASE}/authentication/getAccessToken`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password: apiKey }),
+  });
+  const data = await res.json();
+  if (data.result !== true || !data.data?.accessToken) {
+    throw new Error(`CJ auth failed: ${data.message}`);
+  }
+  const newSession = {
+    access_token: data.data.accessToken,
+    refresh_token: data.data.refreshToken || null,
+    expires_at: now + (data.data.expiresIn || 86400) * 1000,
+    email,
+  };
+  if (session) {
+    await base44.asServiceRole.entities.CJSession.update(session.id, newSession);
+  } else {
+    await base44.asServiceRole.entities.CJSession.create(newSession);
+  }
+  return newSession.access_token;
+}
+
+async function cjGet(token, path, params) {
+  const url = new URL(`${CJ_BASE}${path}`);
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined && v !== null) url.searchParams.set(k, String(v));
+    }
+  }
+  const res = await fetch(url.toString(), {
+    headers: { 'CJ-Access-Token': token, 'Content-Type': 'application/json' },
+  });
+  const data = await res.json();
+  if (data.result === false) {
+    throw new Error(`CJ GET [${path}]: ${data.message}`);
+  }
+  return data.data || data;
+}
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return Response.json({ error: 'Method not allowed' }, { status: 405 });
 
@@ -78,27 +129,67 @@ Deno.serve(async (req) => {
 
   // ── Phase 1: Sync to Shopify ──────────────────────────────────────────
   if (action === 'sync_to_shopify') {
+    // Fetch the latest CJ mapping to get real product data
+    const mappings = await base44.asServiceRole.entities.CJMapping.filter({
+      entity_type: 'variant',
+      sync_status: 'synced',
+    });
+    
+    if (mappings.length === 0) {
+      return Response.json({
+        action: 'sync_to_shopify',
+        status: 'failed',
+        error: 'No CJ mapping found. Complete step 2 (Map to CJ) first.',
+      }, { status: 400 });
+    }
+
+    const mapping = mappings[mappings.length - 1];
+    const cjProductId = mapping.cj_id;
+    const cjSku = mapping.cj_sku;
+
+    // Fetch real product from CJ
+    let cjToken;
+    try {
+      cjToken = await getCJToken(base44, Deno.env.get('CJ_EMAIL'), Deno.env.get('CJ_API_KEY'));
+    } catch (e) {
+      return Response.json({
+        action: 'sync_to_shopify',
+        status: 'failed',
+        error: `CJ auth failed: ${e.message}`,
+      }, { status: 502 });
+    }
+
+    let cjProduct;
+    try {
+      cjProduct = await cjGet(cjToken, '/product/detail', { productId: cjProductId });
+    } catch (e) {
+      return Response.json({
+        action: 'sync_to_shopify',
+        status: 'failed',
+        error: `Failed to fetch CJ product: ${e.message}`,
+      }, { status: 502 });
+    }
+
+    // Build product from real CJ data
     const testProduct = {
-      canonical_id: `test_product_${Date.now()}`,
-      title: 'Test Product — Phase 1 Validation',
-      description: 'This is a test product for pipeline validation',
-      brand: 'TestBrand',
+      canonical_id: mapping.canonical_id,
+      title: cjProduct.productName || 'CJ Product',
+      description: cjProduct.productDesc || '',
+      brand: cjProduct.brand || 'CJ Dropshipping',
       product_type: 'dropship',
       variants: [
         {
-          canonical_id: `test_variant_${Date.now()}_1`,
-          title: 'Default',
-          sku: `TEST-SKU-${Date.now()}`,
-          price: 29.99,
-          compare_at_price: 49.99,
+          canonical_id: mapping.canonical_id,
+          title: cjProduct.productName || 'Default',
+          sku: cjSku,
+          price: parseFloat(cjProduct.productCost || 0),
+          compare_at_price: parseFloat(cjProduct.productCost || 0) * 1.5,
         },
       ],
-      images: [
-        {
-          src: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&h=500',
-          alt: 'Test Product',
-        },
-      ],
+      images: (cjProduct.imageLists || []).slice(0, 1).map(img => ({
+        src: img,
+        alt: cjProduct.productName || 'Product Image',
+      })),
     };
 
     try {
