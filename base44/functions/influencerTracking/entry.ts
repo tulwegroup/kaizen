@@ -16,7 +16,7 @@ Deno.serve(async (req) => {
 
   const base44 = createClientFromRequest(req);
   const user = await base44.auth.me();
-  if (!user?.role !== 'admin') return Response.json({ error: 'Admin only' }, { status: 403 });
+  if (!user || user.role !== 'admin') return Response.json({ error: 'Admin only' }, { status: 403 });
 
   const body = await req.json();
   const { action, influencer_id, shopify_order_id, discount_code_used, conversion_value } = body;
