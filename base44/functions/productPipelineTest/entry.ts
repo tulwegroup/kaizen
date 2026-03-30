@@ -161,7 +161,7 @@ Deno.serve(async (req) => {
 
     let cjProduct;
     try {
-      cjProduct = await cjGet(cjToken, '/product/detail', { productId: cjProductId });
+      cjProduct = await cjGet(cjToken, '/source/product/getDetail', { productId: cjProductId });
     } catch (e) {
       return Response.json({
         action: 'sync_to_shopify',
