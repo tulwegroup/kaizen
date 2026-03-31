@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -31,6 +31,7 @@ export default function InfluencerEngine() {
   const [loading, setLoading] = useState('');
   const [results, setResults] = useState({});
   const [errors, setErrors] = useState({});
+  const [profiles, setProfiles] = useState([]);
 
   // Form state
   const [influencerId, setInfluencerId] = useState('');
@@ -41,6 +42,12 @@ export default function InfluencerEngine() {
   const [orderId, setOrderId] = useState('');
   const [orderValue, setOrderValue] = useState('');
   const [discountUsed, setDiscountUsed] = useState('');
+
+  useEffect(() => {
+    base44.functions.invoke('influencerDiscovery', { action: 'filter_by_size', min_followers: 0, max_followers: 9999999 })
+      .then(res => setProfiles(res.data?.profiles || []))
+      .catch(() => {});
+  }, []);
 
   const run = async (key, fn, functionName, payload) => {
     setLoading(key);
@@ -125,14 +132,20 @@ export default function InfluencerEngine() {
         {activeSection === 'outreach' && (
           <div className="space-y-4">
             <Card className="p-5">
-              <h2 className="font-semibold text-slate-800 mb-3">Influencer ID</h2>
-              <Input
-                placeholder="Paste influencer ID from discovery results above"
+              <h2 className="font-semibold text-slate-800 mb-3">Select Influencer</h2>
+              <select
                 value={influencerId}
                 onChange={e => setInfluencerId(e.target.value)}
-                className="mb-1 font-mono text-xs"
-              />
-              <p className="text-slate-400 text-xs">Used for all outreach actions below</p>
+                className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-400"
+              >
+                <option value="">— Choose an influencer —</option>
+                {profiles.map(p => (
+                  <option key={p.id} value={p.id}>
+                    @{p.platform_username} ({p.platform}) · {(p.follower_count / 1000).toFixed(0)}k followers
+                  </option>
+                ))}
+              </select>
+              <p className="text-slate-400 text-xs mt-1">Used for all outreach actions below</p>
             </Card>
 
             <Card className="p-5">
@@ -222,13 +235,19 @@ export default function InfluencerEngine() {
 
             <Card className="p-5">
               <h2 className="font-semibold text-slate-800 mb-3">Get Influencer Metrics</h2>
-              <div className="flex gap-2 mb-1">
-                <Input
-                  placeholder="Influencer ID"
+              <div className="flex gap-2 mb-3">
+                <select
                   value={influencerId}
                   onChange={e => setInfluencerId(e.target.value)}
-                  className="font-mono text-xs"
-                />
+                  className="flex-1 border border-slate-200 rounded-md px-3 py-2 text-sm bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                >
+                  <option value="">— Choose an influencer —</option>
+                  {profiles.map(p => (
+                    <option key={p.id} value={p.id}>
+                      @{p.platform_username} ({p.platform})
+                    </option>
+                  ))}
+                </select>
                 <Button
                   size="sm"
                   onClick={() => run('metrics', null, 'influencerTracking', { action: 'get_metrics', influencer_id: influencerId })}
@@ -244,10 +263,18 @@ export default function InfluencerEngine() {
             <Card className="p-5">
               <h2 className="font-semibold text-slate-800 mb-3">Track Conversion</h2>
               <div className="space-y-2 mb-3">
-                <Input placeholder="Influencer ID" value={influencerId} onChange={e => setInfluencerId(e.target.value)} className="font-mono text-xs" />
-                <Input placeholder="Shopify Order ID" value={orderId} onChange={e => setOrderId(e.target.value)} />
-                <Input placeholder="Order Value (e.g. 49.99)" type="number" value={orderValue} onChange={e => setOrderValue(e.target.value)} />
-                <Input placeholder="Discount Code Used (optional)" value={discountUsed} onChange={e => setDiscountUsed(e.target.value)} />
+                <select
+                  value={influencerId}
+                  onChange={e => setInfluencerId(e.target.value)}
+                  className="w-full border border-slate-200 rounded-md px-3 py-2 text-sm bg-white text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                >
+                  <option value="">— Choose an influencer —</option>
+                  {profiles.map(p => (
+                    <option key={p.id} value={p.id}>
+                      @{p.platform_username} ({p.platform})
+                    </option>
+                  ))}
+                </select>
               </div>
               <Button
                 size="sm"
