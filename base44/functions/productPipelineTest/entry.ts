@@ -191,10 +191,25 @@ Deno.serve(async (req) => {
     const uniqueCombos = new Set(combos);
     const hasValidOptions = allHaveKey1 && uniqueCombos.size === cjVariants.length;
 
-    const options = [];
+    // Determine options strategy
+    let options = [];
+    let useNameAsOption = false;
+
     if (hasValidOptions) {
       options.push({ name: 'Size', values: key1Values });
       if (key2Values.length > 0) options.push({ name: 'Color', values: key2Values });
+    } else if (cjVariants.length > 1) {
+      // Fallback: use truncated variant names as Title option
+      useNameAsOption = true;
+      const titleValues = cjVariants.map(v => (v.variantNameEn || v.variantName || `Variant ${cjVariants.indexOf(v) + 1}`).substring(0, 100));
+      // Deduplicate by appending index if needed
+      const seen = {};
+      const uniqueTitleValues = titleValues.map((t, i) => {
+        if (seen[t] !== undefined) return `${t} (${i + 1})`;
+        seen[t] = i;
+        return t;
+      });
+      options.push({ name: 'Title', values: uniqueTitleValues });
     }
 
     const canonicalVariants = cjVariants.length > 0
@@ -211,6 +226,9 @@ Deno.serve(async (req) => {
           if (hasValidOptions) {
             variant.option1 = v.variantKey1;
             if (key2Values.length > 0) variant.option2 = v.variantKey2 || null;
+          } else if (useNameAsOption) {
+            const rawName = (v.variantNameEn || v.variantName || `Variant ${i + 1}`).substring(0, 100);
+            variant.option1 = options[0].values[i];
           }
           return variant;
         })
@@ -246,29 +264,90 @@ Deno.serve(async (req) => {
       product_type: 'dropship',
       vendor: 'CJ Dropshipping',
       variants: canonicalVariants,
-      options: options.length > 0 ? options : undefined,
+      options: options.length > 0 ? options : null,
       images: allImages,
     };
 
-    try {
-      const syncRes = await base44.asServiceRole.functions.invoke('shopifySync', {
-        action: 'create_product',
-        product: testProduct,
-      });
+    // Fetch Shopify session
+    const shopDomain = Deno.env.get('SHOPIFY_STORE_DOMAIN');
+    if (!shopDomain) return Response.json({ action: 'sync_to_shopify', status: 'failed', error: 'Missing SHOPIFY_STORE_DOMAIN' }, { status: 500 });
 
-      return Response.json({
-        action: 'sync_to_shopify',
-        status: 'success',
-        shopify_product_id: syncRes.data.shopify_id,
-        next_step: 'Verify in Shopify dashboard → check your store',
-      });
-    } catch (e) {
-      return Response.json({
-        action: 'sync_to_shopify',
-        status: 'failed',
-        error: e.message,
-      }, { status: 502 });
+    const shopifySessions = await base44.asServiceRole.entities.ShopifySession.filter({ shop_domain: shopDomain });
+    const shopifyToken = shopifySessions[0]?.access_token;
+    if (!shopifyToken) return Response.json({ action: 'sync_to_shopify', status: 'failed', error: 'No Shopify session found. Complete OAuth first.' }, { status: 401 });
+
+    // Build Shopify payload
+    const hasOptions = testProduct.options && testProduct.options.length > 0;
+    console.log('Building Shopify payload', { hasOptions, options: testProduct.options, variantCount: testProduct.variants.length, sampleVariant: testProduct.variants[0] });
+    const shopifyPayload = {
+      product: {
+        title: testProduct.title,
+        body_html: testProduct.description_html || testProduct.description || '',
+        vendor: testProduct.vendor || testProduct.brand || '',
+        product_type: testProduct.product_type || '',
+        status: 'draft',
+        variants: testProduct.variants.map(v => {
+          const variant = {
+            sku: v.sku || '',
+            price: String(v.price || '0.00'),
+            compare_at_price: v.compare_at_price ? String(v.compare_at_price) : null,
+            inventory_management: 'shopify',
+            inventory_policy: 'deny',
+            fulfillment_service: 'manual',
+            weight: v.weight || 0,
+            weight_unit: v.weight_unit || 'lb',
+          };
+          if (hasOptions) {
+            variant.option1 = v.option1 || 'Default';
+            if (testProduct.options.length > 1) variant.option2 = v.option2 || null;
+          }
+          return variant;
+        }),
+      },
+    };
+    if (hasOptions) {
+      shopifyPayload.product.options = testProduct.options.map(o => ({ name: o.name, values: o.values }));
     }
+    // Only include images with valid http/https URLs
+    const validImages = (testProduct.images || []).filter(img => img.src && /^https?:\/\/.+/.test(img.src));
+    if (validImages.length > 0) {
+      shopifyPayload.product.images = validImages.map(img => ({ src: img.src, alt: img.alt || '' }));
+    }
+
+    const shopifyRes = await fetch(`https://${shopDomain}/admin/api/2026-01/products.json`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': shopifyToken },
+      body: JSON.stringify(shopifyPayload),
+    });
+
+    if (!shopifyRes.ok) {
+      const errText = await shopifyRes.text();
+      return Response.json({ action: 'sync_to_shopify', status: 'failed', error: `Shopify API error [${shopifyRes.status}]: ${errText}` }, { status: 502 });
+    }
+
+    const shopifyData = await shopifyRes.json();
+    const shopifyProduct = shopifyData.product;
+
+    // Save mapping
+    await base44.asServiceRole.entities.ShopifyMapping.create({
+      entity_type: 'product',
+      canonical_id: testProduct.canonical_id,
+      shopify_id: String(shopifyProduct.id),
+      shopify_gid: `gid://shopify/Product/${shopifyProduct.id}`,
+      shop_domain: shopDomain,
+      sync_status: 'synced',
+      last_synced_at: new Date().toISOString(),
+      metadata: { title: shopifyProduct.title, handle: shopifyProduct.handle },
+    });
+
+    return Response.json({
+      action: 'sync_to_shopify',
+      status: 'success',
+      shopify_product_id: String(shopifyProduct.id),
+      shopify_handle: shopifyProduct.handle,
+      shopify_status: shopifyProduct.status,
+      next_step: 'Verify in Shopify dashboard → check your store',
+    });
   }
 
   // ── Phase 1: Verify in Shopify ─────────────────────────────────────────
@@ -306,6 +385,42 @@ Deno.serve(async (req) => {
         ready_for_phase_2: cjMappings.length > 0 && shopifyMappings.length > 0,
       },
       next_step: ready_for_phase_2 ? 'Proceed to Phase 2: Influencer System' : 'Complete Phase 1 first',
+    });
+  }
+
+  // ── Debug: inspect CJ product + Shopify payload ──────────────────────────
+  if (action === 'debug_payload') {
+    const mappings = await base44.asServiceRole.entities.CJMapping.filter({ entity_type: 'variant', sync_status: 'synced' });
+    if (mappings.length === 0) return Response.json({ error: 'No mapping found' }, { status: 400 });
+    mappings.sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
+    const mapping = mappings[0];
+
+    let cjToken;
+    try { cjToken = await getCJToken(base44, Deno.env.get('CJ_EMAIL'), Deno.env.get('CJ_API_KEY')); }
+    catch (e) { return Response.json({ error: `CJ auth: ${e.message}` }, { status: 502 }); }
+
+    const url = new URL(`${CJ_BASE}/product/query`);
+    url.searchParams.set('pid', mapping.cj_id);
+    const cjRes = await fetch(url.toString(), { headers: { 'CJ-Access-Token': cjToken, 'Content-Type': 'application/json' } });
+    const cjData = await cjRes.json();
+    const cjProduct = cjData.data || cjData;
+    const cjVariants = cjProduct.variants || [];
+
+    const allHaveKey1 = cjVariants.length > 0 && cjVariants.every(v => v.variantKey1);
+    const key1Values = allHaveKey1 ? [...new Set(cjVariants.map(v => v.variantKey1))] : [];
+    const key2Values = allHaveKey1 ? [...new Set(cjVariants.map(v => v.variantKey2).filter(Boolean))] : [];
+    const combos = cjVariants.map(v => `${v.variantKey1 || ''}_${v.variantKey2 || ''}`);
+    const uniqueCombos = new Set(combos);
+    const hasValidOptions = allHaveKey1 && uniqueCombos.size === cjVariants.length;
+
+    return Response.json({
+      mapping_cj_id: mapping.cj_id,
+      cj_product_title: cjProduct.productNameEn,
+      cj_variants_count: cjVariants.length,
+      allHaveKey1, key1Values, key2Values, hasValidOptions,
+      combos: [...combos],
+      unique_combos_count: uniqueCombos.size,
+      raw_variants_sample: cjVariants.slice(0, 5).map(v => ({ variantKey1: v.variantKey1, variantKey2: v.variantKey2, variantSku: v.variantSku, variantNameEn: v.variantNameEn })),
     });
   }
 
