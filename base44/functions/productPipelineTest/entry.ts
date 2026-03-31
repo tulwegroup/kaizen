@@ -182,28 +182,35 @@ Deno.serve(async (req) => {
     // Build variants with size/color options from CJ variant data
     const cjVariants = cjProduct.variants || [];
 
-    // Determine unique option values first
-    const rawOption1 = [...new Set(cjVariants.map(v => v.variantKey1).filter(Boolean))];
-    const rawOption2 = [...new Set(cjVariants.map(v => v.variantKey2).filter(Boolean))];
+    // Only use options if ALL variants have a variantKey1 AND they are all unique
+    const allHaveKey1 = cjVariants.length > 0 && cjVariants.every(v => v.variantKey1);
+    const key1Values = allHaveKey1 ? [...new Set(cjVariants.map(v => v.variantKey1))] : [];
+    const key2Values = allHaveKey1 ? [...new Set(cjVariants.map(v => v.variantKey2).filter(Boolean))] : [];
+    // Unique option combos = count of unique [key1+key2] pairs must equal variant count
+    const combos = cjVariants.map(v => `${v.variantKey1 || ''}_${v.variantKey2 || ''}`);
+    const uniqueCombos = new Set(combos);
+    const hasValidOptions = allHaveKey1 && uniqueCombos.size === cjVariants.length;
+
     const options = [];
-    if (rawOption1.length > 0) options.push({ name: 'Size', values: rawOption1 });
-    if (rawOption2.length > 0) options.push({ name: 'Color', values: rawOption2 });
+    if (hasValidOptions) {
+      options.push({ name: 'Size', values: key1Values });
+      if (key2Values.length > 0) options.push({ name: 'Color', values: key2Values });
+    }
 
     const canonicalVariants = cjVariants.length > 0
       ? cjVariants.map((v, i) => {
           const variant = {
             canonical_id: `${mapping.canonical_id}_v${i}`,
             title: v.variantNameEn || v.variantName || 'Default',
-            sku: v.variantSku || v.sku || cjSku,
+            sku: v.variantSku || v.sku || `${cjSku}-${i}`,
             price: parseFloat(v.variantSellPrice || v.sellPrice || 19.99),
             compare_at_price: parseFloat(v.variantSellPrice || v.sellPrice || 19.99) * 1.5,
             weight: v.variantWeight || 0,
             weight_unit: 'g',
           };
-          // Only set option values if we have real options, and ensure they match
-          if (options.length > 0) {
-            variant.option1 = v.variantKey1 || rawOption1[0] || 'Default';
-            if (options.length > 1) variant.option2 = v.variantKey2 || rawOption2[0] || null;
+          if (hasValidOptions) {
+            variant.option1 = v.variantKey1;
+            if (key2Values.length > 0) variant.option2 = v.variantKey2 || null;
           }
           return variant;
         })
