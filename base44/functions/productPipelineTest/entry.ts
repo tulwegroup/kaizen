@@ -181,34 +181,39 @@ Deno.serve(async (req) => {
 
     // Build variants with size/color options from CJ variant data
     const cjVariants = cjProduct.variants || [];
+
+    // Determine unique option values first
+    const rawOption1 = [...new Set(cjVariants.map(v => v.variantKey1).filter(Boolean))];
+    const rawOption2 = [...new Set(cjVariants.map(v => v.variantKey2).filter(Boolean))];
+    const options = [];
+    if (rawOption1.length > 0) options.push({ name: 'Size', values: rawOption1 });
+    if (rawOption2.length > 0) options.push({ name: 'Color', values: rawOption2 });
+
     const canonicalVariants = cjVariants.length > 0
-      ? cjVariants.map((v, i) => ({
-          canonical_id: `${mapping.canonical_id}_v${i}`,
-          title: v.variantNameEn || v.variantName || 'Default',
-          sku: v.variantSku || v.sku || cjSku,
-          price: parseFloat(v.variantSellPrice || v.sellPrice || 19.99),
-          compare_at_price: parseFloat(v.variantSellPrice || v.sellPrice || 19.99) * 1.5,
-          option1: v.variantKey1 || null,
-          option2: v.variantKey2 || null,
-          weight: v.variantWeight || 0,
-          weight_unit: 'g',
-        }))
+      ? cjVariants.map((v, i) => {
+          const variant = {
+            canonical_id: `${mapping.canonical_id}_v${i}`,
+            title: v.variantNameEn || v.variantName || 'Default',
+            sku: v.variantSku || v.sku || cjSku,
+            price: parseFloat(v.variantSellPrice || v.sellPrice || 19.99),
+            compare_at_price: parseFloat(v.variantSellPrice || v.sellPrice || 19.99) * 1.5,
+            weight: v.variantWeight || 0,
+            weight_unit: 'g',
+          };
+          // Only set option values if we have real options, and ensure they match
+          if (options.length > 0) {
+            variant.option1 = v.variantKey1 || rawOption1[0] || 'Default';
+            if (options.length > 1) variant.option2 = v.variantKey2 || rawOption2[0] || null;
+          }
+          return variant;
+        })
       : [{
           canonical_id: `${mapping.canonical_id}_v0`,
           title: 'Default',
           sku: cjSku,
           price: 19.99,
           compare_at_price: 39.99,
-          option1: null,
-          option2: null,
         }];
-
-    // Determine options (Size, Color) from variant keys
-    const option1Values = [...new Set(canonicalVariants.map(v => v.option1).filter(Boolean))];
-    const option2Values = [...new Set(canonicalVariants.map(v => v.option2).filter(Boolean))];
-    const options = [];
-    if (option1Values.length > 0) options.push({ name: 'Size', values: option1Values });
-    if (option2Values.length > 0) options.push({ name: 'Color', values: option2Values });
 
     // Collect all product images
     const allImages = [];
