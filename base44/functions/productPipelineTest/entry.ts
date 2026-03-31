@@ -240,17 +240,25 @@ Deno.serve(async (req) => {
           compare_at_price: 39.99,
         }];
 
-    // Collect all product images
+    // Collect all product images — productImage may be a JSON-encoded array string
     const allImages = [];
-    if (cjProduct.productImage) allImages.push({ src: cjProduct.productImage, alt: cjProduct.productNameEn || '' });
-    if (Array.isArray(cjProduct.productImages)) {
-      for (const imgUrl of cjProduct.productImages) {
-        if (imgUrl && !allImages.find(i => i.src === imgUrl)) {
-          allImages.push({ src: imgUrl, alt: cjProduct.productNameEn || '' });
+    const alt = cjProduct.productNameEn || '';
+    const parseImageField = (field) => {
+      if (!field) return [];
+      if (Array.isArray(field)) return field.filter(Boolean);
+      if (typeof field === 'string') {
+        const trimmed = field.trim();
+        if (trimmed.startsWith('[')) {
+          try { return JSON.parse(trimmed).filter(Boolean); } catch (_) {}
         }
+        return trimmed ? [trimmed] : [];
       }
+      return [];
+    };
+    const seen = new Set();
+    for (const src of [...parseImageField(cjProduct.productImage), ...parseImageField(cjProduct.productImages)]) {
+      if (!seen.has(src)) { seen.add(src); allImages.push({ src, alt }); }
     }
-    // Fallback image if none
     if (allImages.length === 0) {
       allImages.push({ src: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&h=500', alt: 'Product Image' });
     }
@@ -421,6 +429,10 @@ Deno.serve(async (req) => {
       combos: [...combos],
       unique_combos_count: uniqueCombos.size,
       raw_variants_sample: cjVariants.slice(0, 5).map(v => ({ variantKey1: v.variantKey1, variantKey2: v.variantKey2, variantSku: v.variantSku, variantNameEn: v.variantNameEn })),
+      product_image: cjProduct.productImage,
+      product_images: cjProduct.productImages,
+      product_image_set: cjProduct.productImageSet,
+      all_image_keys: Object.keys(cjProduct).filter(k => k.toLowerCase().includes('image')),
     });
   }
 
