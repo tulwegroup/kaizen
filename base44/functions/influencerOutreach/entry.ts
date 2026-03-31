@@ -1,7 +1,6 @@
 /**
  * Influencer Outreach Module — Phase 2
  * Automated outreach + personalization + rate limiting.
- * NOT ACTIVATED YET — prep only.
  *
  * Actions:
  *   send_outreach     — send DM/email to influencer with personalized message
@@ -25,10 +24,7 @@ Deno.serve(async (req) => {
   if (action === 'generate_discount') {
     if (!influencer_id) return Response.json({ error: 'influencer_id required' }, { status: 400 });
 
-    const profile = await base44.asServiceRole.entities.InfluencerProfile.filter({
-      id: influencer_id,
-    }).then(r => r[0]);
-
+    const profile = await base44.asServiceRole.entities.InfluencerProfile.get(influencer_id);
     if (!profile) return Response.json({ error: 'Influencer not found' }, { status: 404 });
 
     const discountCode = `INFL_${profile.platform_username.toUpperCase()}_${Math.random().toString(36).substring(7)}`;
@@ -48,10 +44,7 @@ Deno.serve(async (req) => {
   if (action === 'generate_referral') {
     if (!influencer_id) return Response.json({ error: 'influencer_id required' }, { status: 400 });
 
-    const profile = await base44.asServiceRole.entities.InfluencerProfile.filter({
-      id: influencer_id,
-    }).then(r => r[0]);
-
+    const profile = await base44.asServiceRole.entities.InfluencerProfile.get(influencer_id);
     if (!profile) return Response.json({ error: 'Influencer not found' }, { status: 404 });
 
     const baseUrl = Deno.env.get('SHOP_URL') || 'https://shop.example.com';
@@ -74,10 +67,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'influencer_id and message_template required' }, { status: 400 });
     }
 
-    const profile = await base44.asServiceRole.entities.InfluencerProfile.filter({
-      id: influencer_id,
-    }).then(r => r[0]);
-
+    const profile = await base44.asServiceRole.entities.InfluencerProfile.get(influencer_id);
     if (!profile) return Response.json({ error: 'Influencer not found' }, { status: 404 });
 
     // Rate limiting: check outreach frequency
@@ -94,11 +84,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Personalize message (simple: replace {name} with influencer's username)
     const personalizedMessage = message_template.replace('{name}', profile.platform_username);
-
-    // TODO: Send via DM (TikTok/Instagram API) or email (SendEmail integration)
-    // For now: create campaign record in draft state
 
     const campaign = await base44.asServiceRole.entities.InfluencerCampaign.create({
       campaign_name: `Campaign_${profile.platform_username}_${Date.now()}`,

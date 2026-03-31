@@ -29,10 +29,7 @@ Deno.serve(async (req) => {
       }, { status: 400 });
     }
 
-    const profile = await base44.asServiceRole.entities.InfluencerProfile.filter({
-      id: influencer_id,
-    }).then(r => r[0]);
-
+    const profile = await base44.asServiceRole.entities.InfluencerProfile.get(influencer_id);
     if (!profile) return Response.json({ error: 'Influencer not found' }, { status: 404 });
 
     // Get active campaign for this influencer
@@ -77,10 +74,7 @@ Deno.serve(async (req) => {
   if (action === 'get_metrics') {
     if (!influencer_id) return Response.json({ error: 'influencer_id required' }, { status: 400 });
 
-    const profile = await base44.asServiceRole.entities.InfluencerProfile.filter({
-      id: influencer_id,
-    }).then(r => r[0]);
-
+    const profile = await base44.asServiceRole.entities.InfluencerProfile.get(influencer_id);
     if (!profile) return Response.json({ error: 'Influencer not found' }, { status: 404 });
 
     const conversions = await base44.asServiceRole.entities.InfluencerConversion.filter({
