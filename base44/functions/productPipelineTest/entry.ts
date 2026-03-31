@@ -143,7 +143,8 @@ Deno.serve(async (req) => {
       }, { status: 400 });
     }
 
-    const mapping = mappings[mappings.length - 1];
+    mappings.sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
+    const mapping = mappings[0];
     const cjProductId = mapping.cj_id;
     const cjSku = mapping.cj_sku;
 
