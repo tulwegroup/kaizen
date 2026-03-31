@@ -159,28 +159,82 @@ Deno.serve(async (req) => {
       }, { status: 502 });
     }
 
-    // Build product from CJ mapping data
-    const testProduct = {
-      canonical_id: mapping.canonical_id,
-      title: `CJ Product #${cjProductId}`,
-      description: `Imported from CJ Dropshipping (Product ID: ${cjProductId})`,
-      brand: 'CJ Dropshipping',
-      product_type: 'dropship',
-      variants: [
-        {
-          canonical_id: mapping.canonical_id,
+    // Fetch real product data from CJ
+    let cjProduct;
+    try {
+      const url = new URL(`${CJ_BASE}/product/query`);
+      url.searchParams.set('pid', cjProductId);
+      const cjRes = await fetch(url.toString(), {
+        headers: { 'CJ-Access-Token': cjToken, 'Content-Type': 'application/json' },
+      });
+      const cjData = await cjRes.json();
+      if (cjData.result === false) throw new Error(cjData.message);
+      cjProduct = cjData.data || cjData;
+    } catch (e) {
+      return Response.json({
+        action: 'sync_to_shopify',
+        status: 'failed',
+        error: `CJ product lookup failed: ${e.message}`,
+      }, { status: 502 });
+    }
+
+    // Build variants with size/color options from CJ variant data
+    const cjVariants = cjProduct.variants || [];
+    const canonicalVariants = cjVariants.length > 0
+      ? cjVariants.map((v, i) => ({
+          canonical_id: `${mapping.canonical_id}_v${i}`,
+          title: v.variantNameEn || v.variantName || 'Default',
+          sku: v.variantSku || v.sku || cjSku,
+          price: parseFloat(v.variantSellPrice || v.sellPrice || 19.99),
+          compare_at_price: parseFloat(v.variantSellPrice || v.sellPrice || 19.99) * 1.5,
+          option1: v.variantKey1 || null,
+          option2: v.variantKey2 || null,
+          weight: v.variantWeight || 0,
+          weight_unit: 'g',
+        }))
+      : [{
+          canonical_id: `${mapping.canonical_id}_v0`,
           title: 'Default',
           sku: cjSku,
           price: 19.99,
           compare_at_price: 39.99,
-        },
-      ],
-      images: [
-        {
-          src: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&h=500',
-          alt: 'CJ Product',
-        },
-      ],
+          option1: null,
+          option2: null,
+        }];
+
+    // Determine options (Size, Color) from variant keys
+    const option1Values = [...new Set(canonicalVariants.map(v => v.option1).filter(Boolean))];
+    const option2Values = [...new Set(canonicalVariants.map(v => v.option2).filter(Boolean))];
+    const options = [];
+    if (option1Values.length > 0) options.push({ name: 'Size', values: option1Values });
+    if (option2Values.length > 0) options.push({ name: 'Color', values: option2Values });
+
+    // Collect all product images
+    const allImages = [];
+    if (cjProduct.productImage) allImages.push({ src: cjProduct.productImage, alt: cjProduct.productNameEn || '' });
+    if (Array.isArray(cjProduct.productImages)) {
+      for (const imgUrl of cjProduct.productImages) {
+        if (imgUrl && !allImages.find(i => i.src === imgUrl)) {
+          allImages.push({ src: imgUrl, alt: cjProduct.productNameEn || '' });
+        }
+      }
+    }
+    // Fallback image if none
+    if (allImages.length === 0) {
+      allImages.push({ src: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500&h=500', alt: 'Product Image' });
+    }
+
+    const testProduct = {
+      canonical_id: mapping.canonical_id,
+      title: cjProduct.productNameEn || cjProduct.productName || `CJ Product #${cjProductId}`,
+      description: cjProduct.description || cjProduct.productDesc || '',
+      description_html: cjProduct.description || '',
+      brand: cjProduct.supplierName || 'CJ Dropshipping',
+      product_type: 'dropship',
+      vendor: 'CJ Dropshipping',
+      variants: canonicalVariants,
+      options: options.length > 0 ? options : undefined,
+      images: allImages,
     };
 
     try {
