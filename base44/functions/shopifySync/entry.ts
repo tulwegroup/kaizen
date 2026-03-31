@@ -57,24 +57,29 @@ function buildShopifyProductPayload(canonicalProduct) {
     status: canonicalProduct.shopify_status || 'draft',
   };
 
+  const hasOptions = canonicalProduct.options && canonicalProduct.options.length > 0;
+
   if (canonicalProduct.variants && canonicalProduct.variants.length > 0) {
-    product.variants = canonicalProduct.variants.map(v => ({
-      title: v.title || 'Default Title',
-      sku: v.sku || '',
-      price: String(v.price || '0.00'),
-      compare_at_price: v.compare_at_price ? String(v.compare_at_price) : null,
-      inventory_management: 'shopify',
-      inventory_policy: 'deny',
-      fulfillment_service: 'manual',
-      weight: v.weight || 0,
-      weight_unit: v.weight_unit || 'lb',
-      option1: v.option1 || null,
-      option2: v.option2 || null,
-      option3: v.option3 || null,
-    }));
+    product.variants = canonicalProduct.variants.map(v => {
+      const variant = {
+        sku: v.sku || '',
+        price: String(v.price || '0.00'),
+        compare_at_price: v.compare_at_price ? String(v.compare_at_price) : null,
+        inventory_management: 'shopify',
+        inventory_policy: 'deny',
+        fulfillment_service: 'manual',
+        weight: v.weight || 0,
+        weight_unit: v.weight_unit || 'lb',
+      };
+      if (hasOptions) {
+        variant.option1 = v.option1 || 'Default';
+        if (canonicalProduct.options.length > 1) variant.option2 = v.option2 || null;
+      }
+      return variant;
+    });
   }
 
-  if (canonicalProduct.options && canonicalProduct.options.length > 0) {
+  if (hasOptions) {
     product.options = canonicalProduct.options.map(o => ({
       name: o.name,
       values: o.values,
@@ -83,11 +88,6 @@ function buildShopifyProductPayload(canonicalProduct) {
 
   if (canonicalProduct.images && canonicalProduct.images.length > 0) {
     product.images = canonicalProduct.images.map(img => ({ src: img.src, alt: img.alt || '' }));
-  }
-
-  if (canonicalProduct.meta_title || canonicalProduct.meta_description) {
-    product.metafields_global_title_tag = canonicalProduct.meta_title || '';
-    product.metafields_global_description_tag = canonicalProduct.meta_description || '';
   }
 
   return { product };
