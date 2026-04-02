@@ -1,4 +1,4 @@
-export default function ProfitTable({ projections = [] }) {
+export default function ProfitTable({ projections = [], periodLabel = '1 Month' }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
       <div className="bg-violet-50 border-b border-violet-100 px-4 py-2 flex items-center gap-2">
@@ -74,7 +74,7 @@ export default function ProfitTable({ projections = [] }) {
       </div>
       <div className="px-4 py-3 bg-slate-50 border-t border-slate-100">
         <p className="text-xs text-slate-500">
-          <strong>Model assumptions:</strong> 5 micro-influencers (10k–200k followers) · 2 samples each · 4% avg engagement · 1.5% conversion rate · 15% commission on revenue
+          <strong>Projection period: {periodLabel}</strong> &nbsp;&middot;&nbsp; 5 micro-influencers (10k–200k followers) &nbsp;&middot;&nbsp; 2 samples each (one-time) &nbsp;&middot;&nbsp; 4% avg engagement &nbsp;&middot;&nbsp; 1.5% conversion rate &nbsp;&middot;&nbsp; 15% commission on sales
         </p>
       </div>
     </div>

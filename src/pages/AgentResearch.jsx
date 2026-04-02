@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import RegionSelector from "@/components/agent/RegionSelector";
+import PeriodSelector from "@/components/agent/PeriodSelector";
 import NicheSelector from "@/components/agent/NicheSelector";
 import ProductCard from "@/components/agent/ProductCard";
 import ProfitTable from "@/components/agent/ProfitTable";
@@ -13,6 +14,7 @@ import { Sparkles, TrendingUp, DollarSign, Users, RefreshCw, AlertTriangle } fro
 export default function AgentResearch() {
   const [regions, setRegions] = useState([]);
   const [niches, setNiches] = useState([]);
+  const [period, setPeriod] = useState('1month');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -22,7 +24,7 @@ export default function AgentResearch() {
     setLoading(true);
     setResult(null);
     setError(null);
-    const res = await base44.functions.invoke('agentResearch', { regions, niches });
+    const res = await base44.functions.invoke('agentResearch', { regions, niches, period });
     if (res.data?.status === 'success') {
       setResult(res.data);
     } else {
@@ -56,6 +58,7 @@ export default function AgentResearch() {
           <CardContent className="space-y-4">
             <RegionSelector selected={regions} onChange={setRegions} />
             <NicheSelector selected={niches} onChange={setNiches} />
+            <PeriodSelector selected={period} onChange={setPeriod} />
             <Button
               onClick={run}
               disabled={loading || regions.length === 0}
@@ -89,7 +92,13 @@ export default function AgentResearch() {
 
         {result && (
           <div className="space-y-6">
-
+            {/* Period badge */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs bg-emerald-100 text-emerald-700 font-semibold px-3 py-1 rounded-full">
+                📅 Projection period: {result.period_label}
+              </span>
+              <span className="text-xs text-slate-400">{result.research_date ? new Date(result.research_date).toLocaleString() : ''}</span>
+            </div>
             {/* Summary KPIs */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Card className="bg-violet-50 border-violet-100">
@@ -149,7 +158,7 @@ export default function AgentResearch() {
               <h2 className="text-lg font-semibold text-slate-800 mb-3 flex items-center gap-2">
                 <DollarSign className="w-5 h-5 text-emerald-600" /> Profit Projections
               </h2>
-              <ProfitTable projections={result.profit_projections} />
+              <ProfitTable projections={result.profit_projections} periodLabel={result.period_label} />
             </div>
 
             {/* Influencer Landscape */}

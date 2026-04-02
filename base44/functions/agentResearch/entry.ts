@@ -16,7 +16,13 @@ Deno.serve(async (req) => {
   const user = await base44.auth.me();
   if (!user || user.role !== 'admin') return Response.json({ error: 'Admin only' }, { status: 403 });
 
-  const { regions, niches, budget = 5000 } = await req.json();
+  const { regions, niches, budget = 5000, period = '1month' } = await req.json();
+
+  // Period multipliers relative to 1-month baseline
+  const PERIOD_MULTIPLIERS = { '24h': 1/30, '1week': 7/30, '1month': 1, '3month': 3, '6month': 6, '1year': 12 };
+  const PERIOD_LABELS = { '24h': '24 Hours', '1week': '1 Week', '1month': '1 Month', '3month': '3 Months', '6month': '6 Months', '1year': '1 Year' };
+  const periodMultiplier = PERIOD_MULTIPLIERS[period] || 1;
+  const periodLabel = PERIOD_LABELS[period] || '1 Month';
 
   if (!regions || regions.length === 0) {
     return Response.json({ error: 'regions array required' }, { status: 400 });
@@ -158,9 +164,14 @@ For each recommended influencer type provide realistic details.`,
     const commissionPct = BASE_COMMISSION_PCT;
     const commissionPaid = grossRevenue * commissionPct;
 
-    // Net profit = revenue - COGS - samples - commission
-    const netProfit = grossRevenue - cogs - totalSampleCost - commissionPaid;
-    const totalInvestment = totalSampleCost; // only real upfront cost
+    // Scale by period
+    const scaledConversions = Math.round(estimatedConversions * periodMultiplier);
+    const scaledRevenue = scaledConversions * product.recommended_sell_price;
+    const scaledCogs = scaledConversions * product.estimated_cogs;
+    const scaledCommission = scaledRevenue * commissionPct;
+    // Samples are a one-time cost regardless of period
+    const netProfit = scaledRevenue - scaledCogs - totalSampleCost - scaledCommission;
+    const totalInvestment = totalSampleCost;
     const roi = totalInvestment > 0 ? ((netProfit / totalInvestment) * 100).toFixed(1) : 0;
 
     return {
@@ -170,12 +181,12 @@ For each recommended influencer type provide realistic details.`,
       recommended_sell_price: product.recommended_sell_price,
       gross_margin_pct: product.gross_margin_pct,
       num_influencers: NUM_INFLUENCERS,
-      estimated_conversions: estimatedConversions,
-      gross_revenue: Math.round(grossRevenue),
-      cogs_total: Math.round(cogs),
+      estimated_conversions: scaledConversions,
+      gross_revenue: Math.round(scaledRevenue),
+      cogs_total: Math.round(scaledCogs),
       sample_cost: Math.round(totalSampleCost),
       commission_pct: Math.round(commissionPct * 100),
-      commission_paid: Math.round(commissionPaid),
+      commission_paid: Math.round(scaledCommission),
       net_profit: Math.round(netProfit),
       roi_pct: Number(roi),
       search_trend: product.search_trend,
@@ -189,6 +200,8 @@ For each recommended influencer type provide realistic details.`,
   return Response.json({
     status: 'success',
     regions,
+    period,
+    period_label: periodLabel,
     niches: nichesStr.split(', '),
     research_date: new Date().toISOString(),
     market_summary: productResearch.market_summary,

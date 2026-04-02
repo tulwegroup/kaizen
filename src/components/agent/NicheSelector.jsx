@@ -5,6 +5,12 @@ const NICHES = [
   { id: "tech", label: "📱 Tech" },
   { id: "fitness", label: "💪 Fitness" },
   { id: "home", label: "🛋️ Home" },
+  { id: "digital", label: "🎨 Digital Content" },
+  { id: "education", label: "📚 Digital Education" },
+  { id: "gaming", label: "🎮 Gaming" },
+  { id: "pet", label: "🐾 Pet Products" },
+  { id: "kids", label: "👶 Kids & Toys" },
+  { id: "outdoor", label: "🏕️ Outdoor & Travel" },
 ];
 
 export default function NicheSelector({ selected, onChange }) {
