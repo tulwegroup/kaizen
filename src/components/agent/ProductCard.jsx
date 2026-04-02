@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { TrendingUp, Minus, ShoppingBag, Check, Loader } from "lucide-react";
+import { base44 } from '@/api/base44Client';
 
 const trendColor = {
   rising: "bg-emerald-100 text-emerald-700",
@@ -24,6 +26,21 @@ const nicheColor = {
 
 export default function ProductCard({ product, rank }) {
   const TrendIcon = trendIcon[product.search_trend] || Minus;
+  const [importing, setImporting] = useState(false);
+  const [imported, setImported] = useState(null);
+  const [importError, setImportError] = useState('');
+
+  const handleImport = async () => {
+    setImporting(true);
+    setImportError('');
+    const res = await base44.functions.invoke('importResearchProduct', { product });
+    if (res.data?.success) {
+      setImported(res.data);
+    } else {
+      setImportError(res.data?.error || 'Import failed');
+    }
+    setImporting(false);
+  };
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md transition-shadow">
@@ -75,6 +92,26 @@ export default function ProductCard({ product, rank }) {
           </div>
         </div>
       )}
+
+      {/* Import to Shopify */}
+      <div className="mt-3 pt-3 border-t border-slate-100">
+        {imported ? (
+          <a href={imported.shopify_admin_url} target="_blank" rel="noreferrer"
+            className="flex items-center gap-1.5 text-xs text-emerald-700 font-semibold">
+            <Check className="w-3.5 h-3.5" /> Imported to Shopify ↗
+          </a>
+        ) : (
+          <button
+            onClick={handleImport}
+            disabled={importing}
+            className="w-full flex items-center justify-center gap-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50"
+          >
+            {importing ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <ShoppingBag className="w-3.5 h-3.5" />}
+            {importing ? 'Importing...' : 'Import to Shopify'}
+          </button>
+        )}
+        {importError && <p className="text-xs text-red-500 mt-1">{importError}</p>}
+      </div>
     </div>
   );
 }
