@@ -57,7 +57,8 @@ For each product provide:
 - why_it_works: 1-2 sentence explanation
 - cj_search_keywords: array of 2-3 keywords to search on CJ Dropshipping
 - target_audience: brief description
-- top_platforms: array of social platforms where this product performs best`,
+- top_platforms: array of social platforms where this product performs best
+- image_url: a real, publicly accessible product image URL (from Amazon, AliExpress, or product sites) ending in .jpg, .jpeg, .png or .webp`,
     add_context_from_internet: true,
     model: 'gemini_3_flash',
     response_json_schema: {
@@ -79,6 +80,7 @@ For each product provide:
               cj_search_keywords: { type: 'array', items: { type: 'string' } },
               target_audience: { type: 'string' },
               top_platforms: { type: 'array', items: { type: 'string' } },
+              image_url: { type: 'string' },
             }
           }
         },
