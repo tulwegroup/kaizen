@@ -1,20 +1,22 @@
-import { TrendingUp, TrendingDown } from "lucide-react";
-
 export default function ProfitTable({ projections = [] }) {
   return (
     <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="bg-violet-50 border-b border-violet-100 px-4 py-2 flex items-center gap-2">
+        <span className="text-xs font-semibold text-violet-700">💡 Commission model: samples only — no upfront influencer fees. 15% sliding commission paid on sales.</span>
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200">
               <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Product</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Region</th>
               <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Sell Price</th>
+              <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Influencers</th>
               <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Est. Sales</th>
               <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Revenue</th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Influencer $</th>
+              <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Sample Cost</th>
+              <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Commission (15%)</th>
               <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Net Profit</th>
-              <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">ROI</th>
+              <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">ROI on Samples</th>
               <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Score</th>
             </tr>
           </thead>
@@ -25,16 +27,17 @@ export default function ProfitTable({ projections = [] }) {
                   {i === 0 && <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded mr-1">Top</span>}
                   {p.product_name}
                 </td>
-                <td className="px-4 py-3 text-slate-600">{p.region}</td>
                 <td className="px-4 py-3 text-right text-slate-700">${p.recommended_sell_price}</td>
+                <td className="px-4 py-3 text-right text-slate-700">{p.num_influencers}</td>
                 <td className="px-4 py-3 text-right text-slate-700">{p.estimated_conversions}</td>
                 <td className="px-4 py-3 text-right text-slate-700">${p.gross_revenue?.toLocaleString()}</td>
-                <td className="px-4 py-3 text-right text-slate-500">${p.influencer_spend?.toLocaleString()}</td>
+                <td className="px-4 py-3 text-right text-amber-600">${p.sample_cost}</td>
+                <td className="px-4 py-3 text-right text-slate-500">${p.commission_paid?.toLocaleString()}</td>
                 <td className={`px-4 py-3 text-right font-semibold ${p.net_profit >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
                   ${p.net_profit?.toLocaleString()}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${p.roi_pct >= 100 ? 'bg-emerald-100 text-emerald-700' : p.roi_pct >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${p.roi_pct >= 200 ? 'bg-emerald-100 text-emerald-700' : p.roi_pct >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-600'}`}>
                     {p.roi_pct}%
                   </span>
                 </td>
@@ -51,7 +54,16 @@ export default function ProfitTable({ projections = [] }) {
           </tbody>
           <tfoot>
             <tr className="bg-slate-50 border-t-2 border-slate-200">
-              <td colSpan={6} className="px-4 py-3 font-semibold text-slate-700">Total Projected</td>
+              <td colSpan={4} className="px-4 py-3 font-semibold text-slate-700">Total Projected</td>
+              <td className="px-4 py-3 text-right font-semibold text-slate-700">
+                ${projections.reduce((s, p) => s + p.gross_revenue, 0).toLocaleString()}
+              </td>
+              <td className="px-4 py-3 text-right font-semibold text-amber-600">
+                ${projections.reduce((s, p) => s + p.sample_cost, 0).toLocaleString()}
+              </td>
+              <td className="px-4 py-3 text-right font-semibold text-slate-500">
+                ${projections.reduce((s, p) => s + p.commission_paid, 0).toLocaleString()}
+              </td>
               <td className="px-4 py-3 text-right font-bold text-emerald-700">
                 ${projections.reduce((s, p) => s + p.net_profit, 0).toLocaleString()}
               </td>
@@ -59,6 +71,11 @@ export default function ProfitTable({ projections = [] }) {
             </tr>
           </tfoot>
         </table>
+      </div>
+      <div className="px-4 py-3 bg-slate-50 border-t border-slate-100">
+        <p className="text-xs text-slate-500">
+          <strong>Model assumptions:</strong> 5 micro-influencers (10k–200k followers) · 2 samples each · 4% avg engagement · 1.5% conversion rate · 15% commission on revenue
+        </p>
       </div>
     </div>
   );

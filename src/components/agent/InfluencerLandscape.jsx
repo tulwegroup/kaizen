@@ -8,6 +8,11 @@ export default function InfluencerLandscape({ data }) {
 
   return (
     <div className="space-y-4">
+      {/* Commission model banner */}
+      <div className="bg-violet-50 border border-violet-200 rounded-xl px-4 py-3 text-sm text-violet-800">
+        <strong>Commission-based outreach:</strong> Target micro-influencers (10k–200k followers). Send product samples, no upfront payment. Offer 15% sliding commission on all sales driven via their unique code/link.
+      </div>
+
       {/* Influencer Types */}
       {types.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -20,17 +25,17 @@ export default function InfluencerLandscape({ data }) {
               <p className="text-xs text-slate-500 mb-3">{t.region}</p>
               <div className="grid grid-cols-2 gap-2 mb-2 text-center">
                 <div className="bg-slate-50 rounded-lg p-2">
-                  <p className="text-xs text-slate-500">Followers</p>
-                  <p className="text-xs font-bold text-slate-700">{t.follower_range}</p>
+                  <p className="text-xs text-slate-500">Target Followers</p>
+                  <p className="text-xs font-bold text-slate-700">10k – 200k</p>
                 </div>
                 <div className="bg-slate-50 rounded-lg p-2">
                   <p className="text-xs text-slate-500">Engagement</p>
                   <p className="text-xs font-bold text-emerald-700">{t.expected_engagement_rate}%</p>
                 </div>
               </div>
-              <div className="bg-amber-50 rounded-lg p-2 mb-2 text-center">
-                <p className="text-xs text-amber-600">Avg Cost/Post</p>
-                <p className="text-sm font-bold text-amber-700">${t.avg_cost_per_post}</p>
+              <div className="bg-emerald-50 rounded-lg p-2 mb-2 text-center">
+                <p className="text-xs text-emerald-600">Our Cost</p>
+                <p className="text-sm font-bold text-emerald-700">Sample only + 15% commission</p>
               </div>
               <p className="text-xs text-slate-600 italic">{t.why_effective}</p>
             </div>

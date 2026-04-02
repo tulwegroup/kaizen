@@ -130,34 +130,38 @@ For each recommended influencer type provide realistic details.`,
     }
   });
 
-  // Phase 3: Profit projection
+  // Phase 3: Profit projection — Commission model (no upfront fees, sample + 15% commission)
   const products = productResearch.products || [];
   const influencerTypes = influencerResearch.recommended_influencer_types || [];
 
-  // Calculate projected profits per product
+  // Commission model config
+  const NUM_INFLUENCERS = 5;       // micro-influencers per campaign
+  const AVG_FOLLOWERS = 50000;     // mid-point of 10k-200k range
+  const BASE_COMMISSION_PCT = 0.15; // 15% sliding scale base
+
   const profitProjections = products.map(product => {
-    // Find relevant influencer types for this product
-    const relevantInfluencers = influencerTypes.filter(i =>
-      i.niche === product.niche ||
-      (product.top_platforms || []).some(p => p.toLowerCase().includes(i.platform?.toLowerCase()))
-    );
+    // Sample cost: send 2 samples per influencer (1 to keep, 1 to use on camera)
+    const sampleCostPerInfluencer = product.estimated_cogs * 2;
+    const totalSampleCost = sampleCostPerInfluencer * NUM_INFLUENCERS;
 
-    const avgInfluencerCost = relevantInfluencers.length > 0
-      ? relevantInfluencers.reduce((s, i) => s + (i.avg_cost_per_post || 200), 0) / relevantInfluencers.length
-      : 200;
+    // Estimate reach & conversions
+    // Micro-influencer avg engagement ~4%, conversion rate ~1.5% of engaged
+    const avgEngagement = 0.04;
+    const conversionRate = 0.015;
+    const estimatedReach = AVG_FOLLOWERS * NUM_INFLUENCERS;
+    const estimatedConversions = Math.round(estimatedReach * avgEngagement * conversionRate);
 
-    const avgEngagement = relevantInfluencers.length > 0
-      ? relevantInfluencers.reduce((s, i) => s + (i.expected_engagement_rate || 3), 0) / relevantInfluencers.length
-      : 3;
-
-    // Conservative model: 1% of engagement converts, avg 3 influencers per campaign
-    const estimatedReach = 50000; // avg micro-influencer reach
-    const estimatedConversions = Math.round(estimatedReach * (avgEngagement / 100) * 0.01 * 3);
     const grossRevenue = estimatedConversions * product.recommended_sell_price;
     const cogs = estimatedConversions * product.estimated_cogs;
-    const influencerSpend = avgInfluencerCost * 3;
-    const netProfit = grossRevenue - cogs - influencerSpend;
-    const roi = influencerSpend > 0 ? ((netProfit / influencerSpend) * 100).toFixed(1) : 0;
+
+    // Sliding commission: base 15%, reduce slightly for higher-volume influencers
+    const commissionPct = BASE_COMMISSION_PCT;
+    const commissionPaid = grossRevenue * commissionPct;
+
+    // Net profit = revenue - COGS - samples - commission
+    const netProfit = grossRevenue - cogs - totalSampleCost - commissionPaid;
+    const totalInvestment = totalSampleCost; // only real upfront cost
+    const roi = totalInvestment > 0 ? ((netProfit / totalInvestment) * 100).toFixed(1) : 0;
 
     return {
       product_name: product.product_name,
@@ -165,13 +169,17 @@ For each recommended influencer type provide realistic details.`,
       region: product.region,
       recommended_sell_price: product.recommended_sell_price,
       gross_margin_pct: product.gross_margin_pct,
+      num_influencers: NUM_INFLUENCERS,
       estimated_conversions: estimatedConversions,
       gross_revenue: Math.round(grossRevenue),
+      cogs_total: Math.round(cogs),
+      sample_cost: Math.round(totalSampleCost),
+      commission_pct: Math.round(commissionPct * 100),
+      commission_paid: Math.round(commissionPaid),
       net_profit: Math.round(netProfit),
       roi_pct: Number(roi),
-      influencer_spend: Math.round(influencerSpend),
       search_trend: product.search_trend,
-      priority_score: Math.round((product.gross_margin_pct * 0.4) + (Number(roi) * 0.4) + (product.search_trend === 'rising' ? 20 : product.search_trend === 'peak' ? 10 : 5)),
+      priority_score: Math.round((product.gross_margin_pct * 0.4) + (Number(roi) * 0.3) + (product.search_trend === 'rising' ? 20 : product.search_trend === 'peak' ? 12 : 5)),
     };
   });
 
