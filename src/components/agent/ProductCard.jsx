@@ -121,7 +121,7 @@ export default function ProductCard({ product, rank }) {
             className="w-full flex items-center justify-center gap-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50"
           >
             {importing ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <ShoppingBag className="w-3.5 h-3.5" />}
-            {importing ? 'Importing...' : 'Import to Shopify'}
+            {importing ? 'Creating product in Shopify…' : 'Import to Shopify'}
           </button>
         )}
         {importError && <p className="text-xs text-red-500 mt-1">{importError}</p>}

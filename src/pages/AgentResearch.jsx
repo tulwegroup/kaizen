@@ -17,7 +17,9 @@ export default function AgentResearch() {
   const [period, setPeriod] = useState('1month');
   const [importingAll, setImportingAll] = useState(false);
   const [importAllResult, setImportAllResult] = useState(null);
+  const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
   const [loading, setLoading] = useState(false);
+  const [researchProgress, setResearchProgress] = useState(0);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
@@ -25,14 +27,17 @@ export default function AgentResearch() {
     if (!result?.products?.length) return;
     setImportingAll(true);
     setImportAllResult(null);
+    setImportProgress({ current: 0, total: result.products.length });
     let succeeded = 0, failed = 0;
-    for (const product of result.products) {
-      const res = await base44.functions.invoke('importResearchProduct', { product });
+    for (let i = 0; i < result.products.length; i++) {
+      setImportProgress({ current: i + 1, total: result.products.length });
+      const res = await base44.functions.invoke('importResearchProduct', { product: result.products[i] });
       if (res.data?.success) succeeded++;
       else failed++;
     }
     setImportAllResult({ succeeded, failed });
     setImportingAll(false);
+    setImportProgress({ current: 0, total: 0 });
   };
 
   const run = async () => {
@@ -40,7 +45,21 @@ export default function AgentResearch() {
     setLoading(true);
     setResult(null);
     setError(null);
+    setResearchProgress(0);
+
+    // Simulate progress while waiting for the LLM response (~60-90s)
+    let fakeProgress = 0;
+    const interval = setInterval(() => {
+      fakeProgress += Math.random() * 2.5;
+      if (fakeProgress >= 95) fakeProgress = 95; // hold at 95 until done
+      setResearchProgress(Math.round(fakeProgress));
+    }, 1000);
+
     const res = await base44.functions.invoke('agentResearch', { regions, niches, period });
+    clearInterval(interval);
+    setResearchProgress(100);
+    setTimeout(() => setResearchProgress(0), 1000);
+
     if (res.data?.status === 'success') {
       setResult(res.data);
     } else {
@@ -81,9 +100,17 @@ export default function AgentResearch() {
               className="w-full bg-violet-600 hover:bg-violet-700 text-white"
             >
               {loading ? (
-                <span className="flex items-center gap-2">
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  Agents researching… this takes ~30 seconds
+                <span className="flex items-center gap-2 flex-col w-full">
+                  <span className="flex items-center gap-2">
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Researching trending products… {researchProgress}%
+                  </span>
+                  <div className="w-full bg-violet-300 rounded-full h-1.5">
+                    <div
+                      className="bg-white rounded-full h-1.5 transition-all duration-1000"
+                      style={{ width: `${researchProgress}%` }}
+                    />
+                  </div>
                 </span>
               ) : (
                 <span className="flex items-center gap-2">
@@ -110,11 +137,26 @@ export default function AgentResearch() {
         <div className="space-y-6">
         {/* Import All Banner */}
         <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-4 py-3">
-          <div>
+          <div className="flex-1">
             <p className="text-sm font-semibold text-slate-800">Import all {result.products?.length} products to Shopify</p>
             <p className="text-xs text-slate-500">Creates all products as drafts with images, descriptions & inventory</p>
+            {importingAll && importProgress.total > 0 && (
+              <div className="mt-2">
+                <div className="flex justify-between text-xs text-slate-500 mb-1">
+                  <span>Importing product {importProgress.current} of {importProgress.total}…</span>
+                  <span>{Math.round((importProgress.current / importProgress.total) * 100)}%</span>
+                </div>
+                <div className="w-full bg-slate-200 rounded-full h-1.5">
+                  <div
+                    className="bg-slate-800 rounded-full h-1.5 transition-all duration-300"
+                    style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-3">
+
+          <div className="flex items-center gap-3 ml-4">
             {importAllResult && (
               <p className="text-xs text-emerald-700 font-medium">
                 ✓ {importAllResult.succeeded} imported{importAllResult.failed > 0 ? `, ${importAllResult.failed} failed` : ''}
