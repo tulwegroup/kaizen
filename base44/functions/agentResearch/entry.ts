@@ -1,6 +1,6 @@
 /**
  * Agent Research — Automated Market Intelligence
- * Returns 20-25 diverse trending products (physical + digital + viral)
+ * Fast, reliable product research without live internet calls (avoids timeouts)
  */
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
@@ -11,7 +11,7 @@ Deno.serve(async (req) => {
   const user = await base44.auth.me();
   if (!user || user.role !== 'admin') return Response.json({ error: 'Admin only' }, { status: 403 });
 
-  const { regions, niches, budget = 5000, period = '1month' } = await req.json();
+  const { regions, niches, period = '1month' } = await req.json();
 
   const PERIOD_MULTIPLIERS = { '24h': 1/30, '1week': 7/30, '1month': 1, '3month': 3, '6month': 6, '1year': 12 };
   const PERIOD_LABELS = { '24h': '24 Hours', '1week': '1 Week', '1month': '1 Month', '3month': '3 Months', '6month': '6 Months', '1year': '1 Year' };
@@ -22,53 +22,56 @@ Deno.serve(async (req) => {
     return Response.json({ error: 'regions array required' }, { status: 400 });
   }
 
-  const existingProfiles = await base44.asServiceRole.entities.InfluencerProfile.list();
-  const profileSummary = existingProfiles.map(p =>
-    `@${p.platform_username} (${p.platform}, ${p.niche}, ${p.follower_count} followers)`
-  ).join('\n');
-
   const nichesStr = niches && niches.length > 0
     ? niches.join(', ')
     : 'fashion, beauty, lifestyle, tech, fitness, home, viral, digital, pet, baby, gaming, outdoor, kitchen, wellness';
   const regionsStr = regions.join(', ');
+  const today = new Date().toISOString().split('T')[0];
+  const monthYear = today.slice(0, 7); // e.g. 2026-04
 
   // Run both LLM calls in parallel
   const [productResearch, influencerResearch] = await Promise.all([
     base44.integrations.Core.InvokeLLM({
-      prompt: `You are a top-tier e-commerce market research agent. Research CURRENT trending products in these regions: ${regionsStr}.
+      prompt: `You are a world-class e-commerce trend analyst. Today is ${today} (${monthYear}).
+
+Based on your knowledge of TikTok Shop viral products, Amazon Best Sellers & Movers/Shakers, AliExpress Hot Products, Google Trends, Instagram/TikTok Reels trends, and Shopify trending stores — identify the HOTTEST products selling RIGHT NOW in: ${regionsStr}.
 Niches to cover: ${nichesStr}.
 
-CRITICAL: Return AT LEAST 20 products. Aim for 25. Mix them across:
+ONLY return products with real current sales momentum. No evergreen basics. Think: what are people impulse-buying this month in ${regionsStr}?
 
-1. PHYSICAL VIRAL PRODUCTS — Things blowing up on TikTok Shop, Amazon, AliExpress RIGHT NOW (gadgets, beauty tools, home organizers, fashion accessories, LED items, massage tools, kitchen gadgets)
-2. DIGITAL PRODUCTS — Zero COGS, 90%+ margin. Examples: AI prompt packs, Notion templates, Canva templates, digital planners, ebooks on trending topics, ChatGPT guides, aesthetic wallpaper packs, social media templates
-3. TRENDING CONTENT / AI TOOLS — Products riding viral content trends: AI photo editors, viral filter tools, aesthetic presets, journaling kits, manifestation products
-4. SEASONAL / HOT RIGHT NOW — Products tied to current season, upcoming holidays, trending events
-5. DIGITAL COURSES & GUIDES — "How to make money with X", skincare routines, fitness plans, trading guides
+Return AT LEAST 20 products (aim for 25), mixing across:
+1. PHYSICAL VIRAL — things blowing up on TikTok/Reels, trending on Amazon/AliExpress this month
+2. DIGITAL — AI prompt packs, Notion/Canva templates, planners, ebooks, social media templates (COGS = $0)
+3. SEASONAL — tied to ${monthYear}, upcoming holidays, or trending events in ${regionsStr}
+4. AI / TECH — software tools, presets, filters, apps riding AI hype
+5. NICHE COMMUNITY — dominating specific niches or subcultures right now
 
-For DIGITAL products: estimated_cogs = 0, product_type = "digital"
-For PHYSICAL products: product_type = "physical"
+Rules:
+- DIGITAL: estimated_cogs = 0, product_type = "digital"
+- PHYSICAL: product_type = "physical"
+- Be SPECIFIC with product names (e.g. "Rose Quartz Gua Sha Facial Tool" not just "beauty tool")
+- why_it_works must cite a REAL signal (e.g. "50M+ TikTok views", "#2 Amazon Beauty Mover April 2026")
 
-For EACH product return:
-- product_name (specific brand/type, not generic)
+Return ALL these fields per product:
+- product_name (specific)
 - product_type: "physical" or "digital"
 - niche: fashion|beauty|lifestyle|tech|fitness|home|viral|digital|pet|baby|gaming|outdoor|kitchen|wellness|auto
-- region: which regions this sells best in
-- estimated_cogs: USD (0 for digital)
-- recommended_sell_price: USD
-- gross_margin_pct: number
+- region: which region it sells best in
+- estimated_cogs (USD, 0 for digital)
+- recommended_sell_price (USD)
+- gross_margin_pct (0-100)
 - search_trend: "rising"|"peak"|"stable"
-- why_it_works: 2 sentences — WHY it's hot right now
-- cj_search_keywords: 3 keywords (for digital: platform to sell on e.g. "Gumroad, Etsy, Shopify digital")
-- target_audience: who buys this
-- top_platforms: best social platforms
-- image_url: real accessible .jpg/.png/.webp URL
-- prevailing_price_low: lowest current market price found (USD) across Amazon, AliExpress, TikTok Shop, etc.
-- prevailing_price_high: highest current market price found (USD)
-- price_source: where you found these prices (e.g. "Amazon US, TikTok Shop")
-- recommended_sell_price: your suggested price BELOW prevailing_price_low to beat competition (explain in price_strategy)
-- price_strategy: 1 sentence explaining how this price beats the market (e.g. "$3 below Amazon average of $29.99, targeting price-sensitive TikTok buyers")
-- price_type: "competitive" (surveyed real prices) or "projected" (estimated based on COGS/margin norms)`,
+- why_it_works (2 sentences, cite specific trend signal)
+- cj_search_keywords (array of 3)
+- target_audience
+- top_platforms (array)
+- image_url (Unsplash or Pexels direct .jpg/.png URL only)
+- prevailing_price_low (USD)
+- prevailing_price_high (USD)
+- price_source (e.g. "Amazon US, TikTok Shop")
+- price_strategy (1 sentence on competitive edge)
+- price_type: "competitive" or "projected"
+- market_summary: overall 2-3 sentence summary of trends across all regions`,
       model: 'gemini_3_flash',
       response_json_schema: {
         type: 'object',
@@ -96,21 +99,16 @@ For EACH product return:
                 price_source: { type: 'string' },
                 price_strategy: { type: 'string' },
                 price_type: { type: 'string' },
-                }
-                }
-                },
-                market_summary: { type: 'string' }
+              }
+            }
+          },
+          market_summary: { type: 'string' }
         }
       }
     }),
 
     base44.integrations.Core.InvokeLLM({
-      prompt: `You are an influencer marketing research agent. For regions: ${regionsStr} and niches: ${nichesStr}, research the influencer landscape.
-
-Existing influencers: 
-${profileSummary || 'None yet'}
-
-Provide recommended influencer types and regional strategies.`,
+      prompt: `You are an influencer marketing expert. For regions: ${regionsStr} and niches: ${nichesStr}, provide recommended influencer types and regional strategies.`,
       model: 'gemini_3_flash',
       response_json_schema: {
         type: 'object',
@@ -147,7 +145,6 @@ Provide recommended influencer types and regional strategies.`,
     }),
   ]);
 
-  // Profit projections
   const products = productResearch.products || [];
 
   const NUM_INFLUENCERS = 5;
