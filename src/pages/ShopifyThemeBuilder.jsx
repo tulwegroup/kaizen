@@ -5,17 +5,18 @@ import { ChevronLeft, Sparkles, ShoppingBag, CheckCircle, RefreshCw, ExternalLin
 import { Button } from "@/components/ui/button";
 
 const FEATURES = [
-  "Luxury dark/gold hero banner with stats",
-  "Sticky header with cart & account icons",
-  "Trust badges (free shipping, secure, returns, global)",
-  "Product grid with hover effects & quick-add",
-  "Sale/New badges with discount % display",
-  "Split promotional banners",
-  "Newsletter signup section",
-  "Full-width footer with social links & payment icons",
-  "Collection page with sort & pagination",
-  "Product page with variant selector & gallery",
+  "Dense product grid (5-6 columns, AliExpress style)",
+  "Orange accent colors with sale badges",
+  "Prominent search bar at top",
+  "Horizontal category navigation bar",
+  "Flash deals scrollable row",
+  "Product cards with sold count, ratings, free shipping",
+  "Sale % badge, Free badge overlays on images",
+  "Trust strip (shipping, secure, returns, global)",
+  "Product detail page with variant selector",
+  "Add to Cart + Buy Now buttons",
   "Cart page with order summary",
+  "Newsletter with coupon offer",
   "Fully mobile responsive",
 ];
 
@@ -57,30 +58,38 @@ export default function ShopifyThemeBuilder() {
       <div className="max-w-4xl mx-auto p-6 space-y-6">
 
         {/* Preview card */}
-        <div className="rounded-2xl overflow-hidden shadow-sm border" style={{ background: "linear-gradient(135deg, #0d0d0d 0%, #1a1a2e 50%, #0d0d1a 100%)" }}>
-          <div className="p-8">
-            <p className="text-xs font-bold tracking-widest text-yellow-400 uppercase mb-3">NEW COLLECTION 2024</p>
-            <h1 className="text-3xl font-bold text-white mb-2" style={{ fontFamily: "Georgia, serif" }}>Kaizen Luxury Theme</h1>
-            <p className="text-slate-400 text-sm mb-6">A fully custom Shopify theme with dark luxury aesthetic, gold accents, and premium product grids — inspired by CJ Dropshipping & AliExpress.</p>
-            <div className="flex gap-6">
-              {["Dark/Gold Palette", "Mobile First", "SEO Ready"].map(tag => (
-                <div key={tag} className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-400"></span>
-                  <span className="text-xs text-slate-400">{tag}</span>
-                </div>
+        <div className="rounded-2xl overflow-hidden shadow-sm border border-orange-200" style={{ background: '#fff5f0' }}>
+          <div className="p-6 border-b border-orange-100">
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-2xl font-black text-orange-500">Kaizen</span>
+              <div className="flex-1 bg-white border-2 border-orange-400 rounded overflow-hidden flex h-8">
+                <div className="flex-1 px-3 text-xs text-slate-400 flex items-center">Search products, brands and categories...</div>
+                <div className="bg-orange-500 px-3 flex items-center"><span className="text-white text-xs">🔍</span></div>
+              </div>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {['All Categories','Fashion','Beauty','Tech','Home','🔥 Super Deals'].map(c => (
+                <span key={c} className={`text-xs px-3 py-1 whitespace-nowrap border-b-2 ${c.includes('🔥') ? 'text-red-600 font-bold border-red-400' : 'text-slate-600 border-transparent hover:border-orange-400'}`}>{c}</span>
               ))}
             </div>
           </div>
-          {/* Fake product grid preview */}
-          <div className="grid grid-cols-4 gap-0 border-t border-white/10">
-            {[1,2,3,4].map(i => (
-              <div key={i} className="aspect-square bg-white/5 border-r border-white/10 last:border-0 flex items-end p-3">
-                <div>
-                  <div className="h-1.5 w-16 bg-white/20 rounded mb-1.5"></div>
-                  <div className="h-1 w-10 bg-yellow-400/40 rounded"></div>
+          <div className="p-4">
+            <p className="text-xs font-semibold text-slate-500 mb-2">Best Sellers — Dense product grid (AliExpress style)</p>
+            <div className="grid grid-cols-5 gap-2">
+              {[1,2,3,4,5].map(i => (
+                <div key={i} className="bg-white border border-slate-200 rounded overflow-hidden">
+                  <div className="aspect-square bg-slate-100 relative">
+                    <span className="absolute top-0 left-0 bg-red-500 text-white text-[9px] font-bold px-1">-{30+i*8}%</span>
+                  </div>
+                  <div className="p-1.5">
+                    <div className="h-2 bg-slate-200 rounded mb-1 w-full"></div>
+                    <div className="h-2 bg-slate-200 rounded mb-1 w-3/4"></div>
+                    <div className="text-[11px] font-bold text-red-500">${(9.99 + i).toFixed(2)}</div>
+                    <div className="text-[9px] text-green-600">Free shipping</div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
 
