@@ -17,12 +17,11 @@ function TikTokIcon() {
   );
 }
 
-function detectPlatform(handle) {
-  const h = handle.toLowerCase().replace(/\s/g, "");
-  if (h.includes("tiktok.com")) return "tiktok";
-  if (h.includes("instagram.com") || h.includes("ig.com")) return "instagram";
-  // guess by common patterns — user can override
-  return null;
+function detectPlatform(raw) {
+  const h = raw.toLowerCase().replace(/\s/g, "");
+  if (h.startsWith("tt:") || h.includes("tiktok.com")) return "tiktok";
+  if (h.startsWith("ig:") || h.includes("instagram.com") || h.includes("ig.com")) return "instagram";
+  return "tiktok"; // default to TikTok
 }
 
 function cleanHandle(raw) {
@@ -65,8 +64,10 @@ export default function OutreachTester() {
   const addAccounts = () => {
     const lines = inputLine.split(/[\n,]+/).map(l => l.trim()).filter(Boolean);
     const newAccts = lines.map(raw => {
-      const handle = cleanHandle(raw);
-      const platform = detectPlatform(raw) || (raw.toLowerCase().includes("tiktok") ? "tiktok" : "instagram");
+      const platform = detectPlatform(raw);
+      // strip prefix if user typed tt: or ig:
+      const stripped = raw.replace(/^(tt:|ig:)/i, "");
+      const handle = cleanHandle(stripped);
       return { raw, handle, platform };
     });
     setAccounts(prev => {
@@ -179,7 +180,7 @@ Also return:
                 <p className="text-xs text-slate-500">Paste handles one per line, or separated by commas. Include @, full URLs, or just the username.</p>
                 <textarea
                   rows={4}
-                  placeholder={"@glowwithzara\n@techwithahmad, @fitlifedubai\nhttps://www.tiktok.com/@viralfindsme"}
+                  placeholder={"@handle → defaults to TikTok\nig:@handle → Instagram\ntt:@handle → TikTok\nhttps://www.tiktok.com/@viralfindsme"}
                   value={inputLine}
                   onChange={e => setInputLine(e.target.value)}
                   onKeyDown={e => { if (e.key === "Enter" && e.metaKey) addAccounts(); }}
