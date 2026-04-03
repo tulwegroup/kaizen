@@ -2,8 +2,32 @@
  * importResearchProduct
  * Enriches a research-agent product with real images + rich HTML description via LLM,
  * then creates it as a Shopify draft product.
+ * Images are fetched as bytes and sent as base64 attachments to avoid hotlink blocking.
  */
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
+
+async function fetchImageAsBase64(url) {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+        'Referer': 'https://www.google.com/',
+      },
+      redirect: 'follow',
+    });
+    if (!res.ok) return null;
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.startsWith('image/')) return null;
+    const buffer = await res.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary);
+  } catch {
+    return null;
+  }
+}
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return Response.json({ error: 'POST only' }, { status: 405 });
@@ -22,24 +46,32 @@ Deno.serve(async (req) => {
   const token = sessions[0]?.access_token;
   if (!token) return Response.json({ error: 'No Shopify session. Complete OAuth first.' }, { status: 401 });
 
-  // Phase 1: Enrich product with real images and a rich description via LLM + internet
+  // Phase 1: Enrich product with images, description, tags via LLM + internet
   const enriched = await base44.integrations.Core.InvokeLLM({
-    prompt: `You are a product listing specialist for a dropshipping store. Research the product "${product.product_name}" (niche: ${product.niche}, target region: ${product.region || 'global'}).
+    prompt: `You are a product listing specialist for a dropshipping store.
 
-Find and return:
-1. 3-5 real, publicly accessible image URLs of this product from e-commerce sites (Amazon, AliExpress, product sites, etc.). These MUST be direct image URLs ending in .jpg, .jpeg, .png, or .webp. Only include URLs you are confident are valid and publicly accessible.
-2. A compelling, SEO-optimized HTML product description (3-4 paragraphs) using <p>, <ul>, <li>, <strong> tags. Include: what it is, key benefits, who it's for, why they'll love it.
-3. A concise SEO meta title (60 chars max).
-4. A meta description for search engines (155 chars max).
-5. 8-10 relevant product tags as an array.
-6. The most accurate product category/type name.
+Research the product "${product.product_name}" (niche: ${product.niche}, region: ${product.region || 'global'}).
 
-Product context:
+Return:
+1. image_urls: 5 direct product image URLs. IMPORTANT: Use only direct CDN image URLs from sources like:
+   - Unsplash (https://images.unsplash.com/photo-...)
+   - Pexels CDN (https://images.pexels.com/photos/...)
+   - Wikimedia (https://upload.wikimedia.org/...)
+   - Direct .jpg/.png/.webp from product manufacturer sites
+   DO NOT use Amazon, AliExpress, eBay, or any marketplace that blocks hotlinking.
+   Each URL must end in .jpg, .jpeg, .png, or .webp.
+2. body_html: A compelling, SEO-optimized HTML product description (3-4 paragraphs) using <p>, <ul>, <li>, <strong> tags. Include: what it is, key benefits, who it's for, why they'll love it.
+3. meta_title: SEO meta title, 60 chars max
+4. meta_description: 155 chars max
+5. tags: 8-10 relevant product tags as array
+6. product_type: most accurate category name
+
+Context:
 - Why it works: ${product.why_it_works || ''}
 - Target audience: ${product.target_audience || ''}
-- Top platforms: ${(product.top_platforms || []).join(', ')}
+- Platforms: ${(product.top_platforms || []).join(', ')}
 - Sell price: $${product.recommended_sell_price}
-- Cost of goods: $${product.estimated_cogs}`,
+- COGS: $${product.estimated_cogs}`,
     add_context_from_internet: true,
     model: 'gemini_3_flash',
     response_json_schema: {
@@ -55,7 +87,7 @@ Product context:
     }
   });
 
-  // Build Shopify product payload
+  // Phase 2: Create Shopify product (without images first)
   const allTags = [
     ...(enriched.tags || []),
     product.niche,
@@ -80,69 +112,79 @@ Product context:
           compare_at_price: product.recommended_sell_price
             ? String(Math.round(product.recommended_sell_price * 1.4 * 100) / 100)
             : null,
-          cost: product.estimated_cogs ? String(product.estimated_cogs) : null,
           sku: `RA-${product.product_name.replace(/\s+/g, '-').toUpperCase().substring(0, 20)}-${Date.now()}`,
           inventory_management: 'shopify',
           inventory_policy: 'deny',
           fulfillment_service: 'manual',
-          weight: 0.5,
-          weight_unit: 'kg',
           taxable: true,
         },
       ],
     },
   };
 
-  // Attach images from LLM research
-  const imageUrls = (enriched.image_urls || []).filter(u => u && u.startsWith('http'));
-  if (imageUrls.length > 0) {
-    shopifyPayload.product.images = imageUrls.map((src, i) => ({
-      src,
-      alt: `${product.product_name} - Image ${i + 1}`,
-      position: i + 1,
-    }));
-  }
-
-  const shopifyRes = await fetch(`https://${shopDomain}/admin/api/2026-01/products.json`, {
+  const createRes = await fetch(`https://${shopDomain}/admin/api/2026-01/products.json`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': token },
     body: JSON.stringify(shopifyPayload),
   });
 
-  if (!shopifyRes.ok) {
-    const errText = await shopifyRes.text();
-    return Response.json({ error: `Shopify error [${shopifyRes.status}]: ${errText}` }, { status: 502 });
+  if (!createRes.ok) {
+    const errText = await createRes.text();
+    return Response.json({ error: `Shopify product create error [${createRes.status}]: ${errText}` }, { status: 502 });
   }
 
-  const data = await shopifyRes.json();
-  const p = data.product;
+  const created = await createRes.json();
+  const shopifyProductId = created.product.id;
+
+  // Phase 3: Fetch image bytes and upload to Shopify as base64 attachments
+  const imageUrls = (enriched.image_urls || []).filter(u => u && u.startsWith('http'));
+  let imagesImported = 0;
+
+  for (let i = 0; i < imageUrls.length; i++) {
+    const attachment = await fetchImageAsBase64(imageUrls[i]);
+    if (!attachment) continue;
+
+    const imgRes = await fetch(`https://${shopDomain}/admin/api/2026-01/products/${shopifyProductId}/images.json`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': token },
+      body: JSON.stringify({
+        image: {
+          attachment,
+          alt: `${product.product_name} - Image ${i + 1}`,
+          position: i + 1,
+        }
+      }),
+    });
+
+    if (imgRes.ok) imagesImported++;
+  }
 
   // Save ShopifyMapping record
   await base44.asServiceRole.entities.ShopifyMapping.create({
     entity_type: 'product',
-    canonical_id: `research-${p.id}`,
-    shopify_id: String(p.id),
-    shopify_gid: `gid://shopify/Product/${p.id}`,
+    canonical_id: `research-${shopifyProductId}`,
+    shopify_id: String(shopifyProductId),
+    shopify_gid: `gid://shopify/Product/${shopifyProductId}`,
     shop_domain: shopDomain,
     sync_status: 'synced',
     last_synced_at: new Date().toISOString(),
     metadata: {
-      title: p.title,
-      handle: p.handle,
+      title: created.product.title,
+      handle: created.product.handle,
       source: 'research_agent',
       niche: product.niche,
       region: product.region,
-      images_count: p.images?.length || 0,
+      images_count: imagesImported,
     },
   });
 
   return Response.json({
     success: true,
-    shopify_product_id: String(p.id),
-    shopify_handle: p.handle,
-    shopify_admin_url: `https://${shopDomain}/admin/products/${p.id}`,
-    title: p.title,
-    status: p.status,
-    images_imported: p.images?.length || 0,
+    shopify_product_id: String(shopifyProductId),
+    shopify_handle: created.product.handle,
+    shopify_admin_url: `https://${shopDomain}/admin/products/${shopifyProductId}`,
+    title: created.product.title,
+    status: created.product.status,
+    images_imported: imagesImported,
   });
 });
