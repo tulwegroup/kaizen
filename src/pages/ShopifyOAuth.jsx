@@ -158,16 +158,32 @@ export default function ShopifyOAuth() {
 
       <div className="max-w-4xl mx-auto p-6 space-y-6">
 
-        {/* Redirect URI setup notice */}
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
-          <p className="text-sm font-semibold text-amber-800 mb-1">⚠️ If you see "redirect_uri not whitelisted" — add this URL to your Shopify app:</p>
-          <div className="flex items-center gap-2 mt-2">
-            <code className="flex-1 bg-white border border-amber-200 rounded-lg px-3 py-2 text-xs text-slate-700 break-all">{stableUrl}</code>
-            <Button size="sm" variant="outline" onClick={copyUrl} className="shrink-0">
-              {copied ? "Copied!" : <><Copy className="w-3.5 h-3.5" /> Copy</>}
-            </Button>
+        {/* Partner Dashboard Setup */}
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 space-y-4">
+          <p className="text-sm font-bold text-amber-900">⚠️ Required: Shopify Partner Dashboard Setup</p>
+          <p className="text-xs text-amber-700">Go to <a href="https://partners.shopify.com/apps" target="_blank" rel="noreferrer" className="underline font-semibold">partners.shopify.com/apps</a> → Your App → <strong>App setup</strong> and configure both fields below:</p>
+
+          <div className="space-y-3">
+            <div>
+              <p className="text-xs font-bold text-amber-800 mb-1">1. Allowed redirection URL(s) — add this EXACTLY:</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-white border border-amber-200 rounded-lg px-3 py-2 text-xs text-slate-700 break-all">{stableUrl}</code>
+                <Button size="sm" variant="outline" onClick={copyUrl} className="shrink-0">
+                  {copied ? "Copied!" : <><Copy className="w-3.5 h-3.5" /> Copy</>}
+                </Button>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs font-bold text-amber-800 mb-1">2. Scopes — make sure ALL of these are included:</p>
+              <div className="bg-white border border-amber-200 rounded-lg px-3 py-2 text-xs text-slate-700 font-mono break-all">
+                read_products,write_products,read_orders,write_orders,read_fulfillments,write_fulfillments,read_inventory,write_inventory,read_customers,read_themes,<span className="text-red-600 font-bold">write_themes</span>
+              </div>
+              <p className="text-xs text-red-600 mt-1">⚠️ <strong>write_themes</strong> is currently missing from your token — this is why theme deployment fails.</p>
+            </div>
           </div>
-          <p className="text-xs text-amber-600 mt-2">Go to <strong>Shopify Partner Dashboard → Your App → App setup → Allowed redirection URL(s)</strong> and add the URL above.</p>
+
+          <p className="text-xs text-amber-700 font-medium">After saving in Partner Dashboard → click Re-authorize below to get a new token with all scopes.</p>
         </div>
 
         {/* Hero card */}
