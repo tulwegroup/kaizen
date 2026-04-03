@@ -135,7 +135,8 @@ Return: image_urls (5 Unsplash/Pexels direct CDN URLs only), body_html (SEO HTML
           body_html: enriched.body_html || `<p>${product.why_it_works || ''}</p>`,
           vendor: 'Research Agent',
           product_type: enriched.product_type || product.niche || 'dropship',
-          status: 'draft',
+          status: 'active',
+          published_scope: 'web',
           tags: allTags.join(', '),
           variants: [{
             price: String(product.recommended_sell_price || '0.00'),
