@@ -30,7 +30,8 @@ export default function ShopifyOAuth() {
           action: "get_auth_url",
           stable_callback_url: stableUrl,
         });
-        window.location.href = res.data.auth_url;
+        window.open(res.data.auth_url, "_blank", "noopener,noreferrer");
+        setStatus("setup");
         return;
       }
 
