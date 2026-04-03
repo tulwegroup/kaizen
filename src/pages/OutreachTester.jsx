@@ -1,76 +1,13 @@
 import { useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Link } from "react-router-dom";
-import { ChevronLeft, Instagram, Send, Eye, RefreshCw, CheckCircle, Copy, Sparkles } from "lucide-react";
+import {
+  ChevronLeft, Send, RefreshCw, Sparkles, Copy, CheckCircle,
+  Instagram, Plus, X, ChevronDown, ChevronUp
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-
-// ─── Test influencer accounts (replace with real ones once validated) ──────────
-const TEST_INFLUENCERS = [
-  {
-    id: "test_tiktok_1",
-    handle: "@glowwithzara",
-    platform: "tiktok",
-    niche: "beauty",
-    followers: 84000,
-    engagement_rate: 6.2,
-    region: "UAE / GCC",
-    avatar: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=80&h=80&fit=crop&crop=face",
-    bio: "Skincare & makeup tutorials for Arab women 💄✨",
-  },
-  {
-    id: "test_insta_1",
-    handle: "@techwithahmad",
-    platform: "instagram",
-    niche: "tech",
-    followers: 52000,
-    engagement_rate: 4.8,
-    region: "Saudi Arabia",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&crop=face",
-    bio: "Latest gadgets, unboxings & honest reviews 🔧📱",
-  },
-  {
-    id: "test_tiktok_2",
-    handle: "@fitlifedubai",
-    platform: "tiktok",
-    niche: "fitness",
-    followers: 130000,
-    engagement_rate: 5.5,
-    region: "UAE",
-    avatar: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=80&h=80&fit=crop&crop=face",
-    bio: "Daily workouts, healthy recipes & Dubai lifestyle 🏋️‍♀️",
-  },
-  {
-    id: "test_insta_2",
-    handle: "@homevibesbylayla",
-    platform: "instagram",
-    niche: "home",
-    followers: 67000,
-    engagement_rate: 5.1,
-    region: "Egypt / MENA",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&h=80&fit=crop&crop=face",
-    bio: "Home decor, organization & cozy living inspiration 🏡",
-  },
-  {
-    id: "test_tiktok_3",
-    handle: "@viralfindsme",
-    platform: "tiktok",
-    niche: "viral",
-    followers: 198000,
-    engagement_rate: 7.3,
-    region: "Global / UK",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=80&h=80&fit=crop&crop=face",
-    bio: "If it's trending I find it first 🔥 Amazon must-haves daily",
-  },
-];
-
-const PLATFORM_COLORS = {
-  tiktok: "bg-black text-white",
-  instagram: "bg-gradient-to-r from-purple-500 to-pink-500 text-white",
-};
-
-const PLATFORM_LABELS = { tiktok: "TikTok", instagram: "Instagram" };
 
 function TikTokIcon() {
   return (
@@ -80,72 +17,137 @@ function TikTokIcon() {
   );
 }
 
+function detectPlatform(handle) {
+  const h = handle.toLowerCase().replace(/\s/g, "");
+  if (h.includes("tiktok.com")) return "tiktok";
+  if (h.includes("instagram.com") || h.includes("ig.com")) return "instagram";
+  // guess by common patterns — user can override
+  return null;
+}
+
+function cleanHandle(raw) {
+  return raw.trim().replace(/^@/, "").split("?")[0].split("/").filter(Boolean).pop() || raw.trim();
+}
+
+const SAMPLE_PRODUCTS = [
+  { name: "Rose Quartz Gua Sha Facial Tool", price: "29.99", code: "GLOW20", commission: "20" },
+  { name: "Magnetic Phone Mount Car Holder", price: "19.99", code: "DRIVE15", commission: "15" },
+  { name: "LED Scalp Massager", price: "34.99", code: "SCALP25", commission: "20" },
+  { name: "Posture Corrector Smart Wearable", price: "39.99", code: "POSTURE20", commission: "20" },
+  { name: "Mini Portable Blender Bottle", price: "24.99", code: "BLEND15", commission: "15" },
+];
+
+const STATUS_COLORS = {
+  pending: "bg-slate-100 text-slate-600",
+  generating: "bg-amber-100 text-amber-700",
+  done: "bg-emerald-100 text-emerald-700",
+  error: "bg-red-100 text-red-700",
+};
+
 export default function OutreachTester() {
-  const [selectedInfluencer, setSelectedInfluencer] = useState(null);
-  const [productName, setProductName] = useState("Rose Quartz Gua Sha Facial Tool");
-  const [sellPrice, setSellPrice] = useState("29.99");
-  const [discountCode, setDiscountCode] = useState("GLOW20");
-  const [commission, setCommission] = useState("20");
-  const [generating, setGenerating] = useState(false);
-  const [pitch, setPitch] = useState(null);
-  const [copied, setCopied] = useState(false);
+  const [inputLine, setInputLine] = useState("");
+  const [accounts, setAccounts] = useState([
+    // pre-filled examples so user knows the format
+    { raw: "@glowwithzara", handle: "glowwithzara", platform: "tiktok" },
+    { raw: "@techwithahmad", handle: "techwithahmad", platform: "instagram" },
+  ]);
 
-  const generatePitch = async () => {
-    if (!selectedInfluencer) return;
-    setGenerating(true);
-    setPitch(null);
+  const [product, setProduct] = useState(SAMPLE_PRODUCTS[0]);
+  const [useCustomProduct, setUseCustomProduct] = useState(false);
+  const [customProduct, setCustomProduct] = useState({ name: "", price: "", code: "", commission: "20" });
 
-    const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `You are a brand partnership manager writing a SHORT, personal influencer outreach DM.
+  const [running, setRunning] = useState(false);
+  const [results, setResults] = useState([]); // { handle, platform, status, pitch, error, expanded, copied }
 
-Platform: ${PLATFORM_LABELS[selectedInfluencer.platform]}
-Influencer handle: ${selectedInfluencer.handle}
-Niche: ${selectedInfluencer.niche}
-Followers: ${selectedInfluencer.followers.toLocaleString()}
-Their bio: "${selectedInfluencer.bio}"
-Region: ${selectedInfluencer.region}
+  const activeProduct = useCustomProduct ? customProduct : product;
 
-Product we want them to promote: ${productName}
-Sell price: $${sellPrice}
-Commission rate: ${commission}% per sale
-Their unique discount code: ${discountCode}
-
-Write a DM pitch that:
-1. Opens with a genuine compliment about their specific content (reference their niche/bio)
-2. Introduces the brand/product in 1-2 sentences — make it feel natural, not corporate
-3. Explains the deal clearly: discount code ${discountCode} for their followers + ${commission}% commission on every sale
-4. Has a clear, low-pressure CTA (reply to this message, no commitment needed)
-5. Ends with a friendly sign-off
-
-Keep it under 150 words. Sound human, warm, and authentic — NOT like a mass template. Use their first name if you can infer it from the handle.
-
-Also generate:
-- subject_line: email subject if this were an email (30 chars max)
-- dm_preview: first 2 lines of the DM (the part visible in notification preview, ~80 chars)
-- fit_score: 1-10 how well this influencer fits the product (10 = perfect)
-- fit_reason: 1 sentence why they're a good/bad fit`,
-      response_json_schema: {
-        type: "object",
-        properties: {
-          dm_text: { type: "string" },
-          subject_line: { type: "string" },
-          dm_preview: { type: "string" },
-          fit_score: { type: "number" },
-          fit_reason: { type: "string" },
-        }
-      }
+  // ── Handle input ──────────────────────────────────────────────
+  const addAccounts = () => {
+    const lines = inputLine.split(/[\n,]+/).map(l => l.trim()).filter(Boolean);
+    const newAccts = lines.map(raw => {
+      const handle = cleanHandle(raw);
+      const platform = detectPlatform(raw) || (raw.toLowerCase().includes("tiktok") ? "tiktok" : "instagram");
+      return { raw, handle, platform };
     });
-
-    setPitch(res);
-    setGenerating(false);
+    setAccounts(prev => {
+      const existing = new Set(prev.map(a => a.handle.toLowerCase()));
+      return [...prev, ...newAccts.filter(a => !existing.has(a.handle.toLowerCase()))];
+    });
+    setInputLine("");
   };
 
-  const copyToClipboard = () => {
-    if (!pitch?.dm_text) return;
-    navigator.clipboard.writeText(pitch.dm_text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const removeAccount = (handle) => setAccounts(prev => prev.filter(a => a.handle !== handle));
+
+  const togglePlatform = (handle) => setAccounts(prev =>
+    prev.map(a => a.handle === handle
+      ? { ...a, platform: a.platform === "tiktok" ? "instagram" : "tiktok" }
+      : a)
+  );
+
+  // ── Run agent ─────────────────────────────────────────────────
+  const runAgent = async () => {
+    if (!accounts.length || !activeProduct.name) return;
+    setRunning(true);
+    setResults(accounts.map(a => ({ ...a, status: "pending", pitch: null, error: null, expanded: false, copied: false })));
+
+    for (let i = 0; i < accounts.length; i++) {
+      const acct = accounts[i];
+      setResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: "generating" } : r));
+
+      const res = await base44.integrations.Core.InvokeLLM({
+        prompt: `You are a brand partnership manager writing a short, human, personalised influencer DM.
+
+Platform: ${acct.platform === "tiktok" ? "TikTok" : "Instagram"}
+Influencer handle: @${acct.handle}
+Product to promote: ${activeProduct.name}
+Sell price: $${activeProduct.price}
+Commission: ${activeProduct.commission}% per sale
+Their discount code: ${activeProduct.code}
+
+Instructions:
+1. Infer the influencer's likely niche and content style from their handle name
+2. Open with a short genuine compliment that sounds personal (not generic)
+3. Introduce the product naturally in 1-2 lines
+4. State the deal: code ${activeProduct.code} for followers + ${activeProduct.commission}% commission on every sale
+5. Simple low-pressure CTA — just reply if interested
+6. Friendly sign-off, under 150 words total
+
+Also return:
+- dm_preview: first ~80 chars (what shows in notification)
+- subject_line: email subject 30 chars max
+- fit_score: 1-10
+- fit_reason: 1 sentence`,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            dm_text: { type: "string" },
+            dm_preview: { type: "string" },
+            subject_line: { type: "string" },
+            fit_score: { type: "number" },
+            fit_reason: { type: "string" },
+          }
+        }
+      });
+
+      setResults(prev => prev.map((r, idx) =>
+        idx === i ? { ...r, status: "done", pitch: res, expanded: true } : r
+      ));
+    }
+
+    setRunning(false);
   };
+
+  const copyPitch = (idx) => {
+    const r = results[idx];
+    if (!r?.pitch?.dm_text) return;
+    navigator.clipboard.writeText(r.pitch.dm_text);
+    setResults(prev => prev.map((r, i) => i === idx ? { ...r, copied: true } : r));
+    setTimeout(() => setResults(prev => prev.map((r, i) => i === idx ? { ...r, copied: false } : r)), 2000);
+  };
+
+  const toggleExpand = (idx) => setResults(prev => prev.map((r, i) => i === idx ? { ...r, expanded: !r.expanded } : r));
+
+  const doneCount = results.filter(r => r.status === "done").length;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -156,211 +158,232 @@ Also generate:
           <Send className="w-4 h-4 text-white" />
         </div>
         <div>
-          <p className="text-sm font-bold text-slate-900">Influencer Outreach Tester</p>
-          <p className="text-xs text-slate-400">Test pitch previews with sample accounts before going live</p>
-        </div>
-        <div className="ml-auto">
-          <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50">Test Mode</Badge>
+          <p className="text-sm font-bold text-slate-900">Influencer Outreach Agent</p>
+          <p className="text-xs text-slate-400">Add handles → agent auto-drafts personalised pitches for each</p>
         </div>
       </div>
 
       <div className="max-w-5xl mx-auto p-6 space-y-6">
 
-        {/* Info banner */}
-        <div className="bg-violet-50 border border-violet-200 rounded-xl px-4 py-3 text-sm text-violet-800">
-          <strong>🧪 Test Mode:</strong> These are sample influencer profiles (10k–200k bracket) to preview how your pitch will look. Once validated, swap these for real micro-influencer handles.
-        </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left: Config */}
+
+          {/* ── LEFT: Setup ── */}
           <div className="space-y-4">
 
-            {/* Product details */}
+            {/* Handle input */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold text-slate-800">TikTok & Instagram Handles</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-xs text-slate-500">Paste handles one per line, or separated by commas. Include @, full URLs, or just the username.</p>
+                <textarea
+                  rows={4}
+                  placeholder={"@glowwithzara\n@techwithahmad, @fitlifedubai\nhttps://www.tiktok.com/@viralfindsme"}
+                  value={inputLine}
+                  onChange={e => setInputLine(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter" && e.metaKey) addAccounts(); }}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300 resize-none font-mono"
+                />
+                <Button onClick={addAccounts} disabled={!inputLine.trim()} variant="outline" className="w-full gap-2 text-sm">
+                  <Plus className="w-4 h-4" /> Add to Queue
+                </Button>
+
+                {/* Account list */}
+                {accounts.length > 0 && (
+                  <div className="space-y-2 pt-1">
+                    <p className="text-xs text-slate-400 font-medium">{accounts.length} account{accounts.length !== 1 ? 's' : ''} queued</p>
+                    {accounts.map(acct => (
+                      <div key={acct.handle} className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                        <span className="text-sm font-mono text-slate-700 flex-1">@{acct.handle}</span>
+                        {/* Platform toggle */}
+                        <button
+                          onClick={() => togglePlatform(acct.handle)}
+                          title="Click to switch platform"
+                          className={`text-xs px-2 py-0.5 rounded font-medium flex items-center gap-1 transition-all ${
+                            acct.platform === "tiktok"
+                              ? "bg-black text-white"
+                              : "bg-gradient-to-r from-purple-500 to-pink-500 text-white"
+                          }`}
+                        >
+                          {acct.platform === "tiktok" ? <TikTokIcon /> : <Instagram className="w-3 h-3" />}
+                          {acct.platform === "tiktok" ? "TikTok" : "Instagram"}
+                        </button>
+                        <button onClick={() => removeAccount(acct.handle)} className="text-slate-400 hover:text-red-400">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Product */}
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold text-slate-800">Product to Promote</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div>
-                  <label className="text-xs text-slate-500 mb-1 block">Product Name</label>
-                  <input
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
-                    value={productName}
-                    onChange={e => setProductName(e.target.value)}
-                  />
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <label className="text-xs text-slate-500 mb-1 block">Sell Price ($)</label>
-                    <input
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
-                      value={sellPrice}
-                      onChange={e => setSellPrice(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-slate-500 mb-1 block">Discount Code</label>
-                    <input
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
-                      value={discountCode}
-                      onChange={e => setDiscountCode(e.target.value.toUpperCase())}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-slate-500 mb-1 block">Commission %</label>
-                    <input
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
-                      value={commission}
-                      onChange={e => setCommission(e.target.value)}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Influencer picker */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold text-slate-800">Select Test Influencer</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {TEST_INFLUENCERS.map(inf => (
+                <div className="flex gap-2 mb-1">
                   <button
-                    key={inf.id}
-                    onClick={() => { setSelectedInfluencer(inf); setPitch(null); }}
-                    className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
-                      selectedInfluencer?.id === inf.id
-                        ? 'border-violet-400 bg-violet-50 shadow-sm'
-                        : 'border-slate-200 bg-white hover:border-slate-300'
-                    }`}
+                    onClick={() => setUseCustomProduct(false)}
+                    className={`flex-1 text-xs py-1.5 rounded-lg font-medium border transition-all ${!useCustomProduct ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200'}`}
                   >
-                    <img src={inf.avatar} alt={inf.handle} className="w-10 h-10 rounded-full object-cover" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-sm text-slate-800">{inf.handle}</span>
-                        <span className={`text-xs px-1.5 py-0.5 rounded font-medium flex items-center gap-1 ${PLATFORM_COLORS[inf.platform]}`}>
-                          {inf.platform === 'tiktok' ? <TikTokIcon /> : <Instagram className="w-3 h-3" />}
-                          {PLATFORM_LABELS[inf.platform]}
-                        </span>
+                    Quick Select
+                  </button>
+                  <button
+                    onClick={() => setUseCustomProduct(true)}
+                    className={`flex-1 text-xs py-1.5 rounded-lg font-medium border transition-all ${useCustomProduct ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200'}`}
+                  >
+                    Custom Product
+                  </button>
+                </div>
+
+                {!useCustomProduct ? (
+                  <div className="space-y-2">
+                    {SAMPLE_PRODUCTS.map(p => (
+                      <button
+                        key={p.name}
+                        onClick={() => setProduct(p)}
+                        className={`w-full text-left px-3 py-2.5 rounded-xl border text-sm transition-all ${
+                          product.name === p.name
+                            ? 'border-violet-400 bg-violet-50'
+                            : 'border-slate-200 bg-white hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-slate-800">{p.name}</span>
+                          {product.name === p.name && <CheckCircle className="w-4 h-4 text-violet-500" />}
+                        </div>
+                        <div className="flex gap-3 mt-0.5">
+                          <span className="text-xs text-slate-500">${p.price}</span>
+                          <span className="text-xs text-violet-600 font-mono">{p.code}</span>
+                          <span className="text-xs text-emerald-600">{p.commission}% commission</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <input
+                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                      placeholder="Product name"
+                      value={customProduct.name}
+                      onChange={e => setCustomProduct(p => ({ ...p, name: e.target.value }))}
+                    />
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="text-xs text-slate-400 mb-1 block">Price ($)</label>
+                        <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" value={customProduct.price} onChange={e => setCustomProduct(p => ({ ...p, price: e.target.value }))} />
                       </div>
-                      <p className="text-xs text-slate-500 truncate">{inf.bio}</p>
-                      <div className="flex gap-3 mt-1">
-                        <span className="text-xs text-slate-600">{(inf.followers / 1000).toFixed(0)}K followers</span>
-                        <span className="text-xs text-emerald-600">{inf.engagement_rate}% engagement</span>
-                        <span className="text-xs text-slate-400">{inf.region}</span>
+                      <div>
+                        <label className="text-xs text-slate-400 mb-1 block">Code</label>
+                        <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" value={customProduct.code} onChange={e => setCustomProduct(p => ({ ...p, code: e.target.value.toUpperCase() }))} />
+                      </div>
+                      <div>
+                        <label className="text-xs text-slate-400 mb-1 block">Comm. %</label>
+                        <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" value={customProduct.commission} onChange={e => setCustomProduct(p => ({ ...p, commission: e.target.value }))} />
                       </div>
                     </div>
-                    {selectedInfluencer?.id === inf.id && <CheckCircle className="w-4 h-4 text-violet-500 shrink-0" />}
-                  </button>
-                ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
             <Button
-              onClick={generatePitch}
-              disabled={!selectedInfluencer || generating || !productName}
-              className="w-full bg-violet-600 hover:bg-violet-700 text-white gap-2"
+              onClick={runAgent}
+              disabled={running || accounts.length === 0 || !activeProduct.name}
+              className="w-full bg-violet-600 hover:bg-violet-700 text-white gap-2 h-11"
             >
-              {generating
-                ? <><RefreshCw className="w-4 h-4 animate-spin" /> Generating pitch…</>
-                : <><Sparkles className="w-4 h-4" /> Generate Pitch Preview</>}
+              {running
+                ? <><RefreshCw className="w-4 h-4 animate-spin" /> Drafting pitches… ({doneCount}/{accounts.length})</>
+                : <><Sparkles className="w-4 h-4" /> Run Outreach Agent ({accounts.length} account{accounts.length !== 1 ? 's' : ''})</>}
             </Button>
           </div>
 
-          {/* Right: Pitch Preview */}
-          <div>
-            {!pitch && !generating && (
-              <div className="h-full flex flex-col items-center justify-center text-center p-12 bg-white rounded-xl border border-dashed border-slate-200">
-                <Eye className="w-10 h-10 text-slate-300 mb-3" />
-                <p className="text-sm text-slate-500">Select an influencer and click<br /><strong>Generate Pitch Preview</strong> to see how your outreach will look</p>
+          {/* ── RIGHT: Results ── */}
+          <div className="space-y-3">
+            {results.length === 0 && (
+              <div className="flex flex-col items-center justify-center text-center p-16 bg-white rounded-xl border border-dashed border-slate-200 h-full">
+                <Sparkles className="w-10 h-10 text-slate-300 mb-3" />
+                <p className="text-sm text-slate-500">Add handles and hit <strong>Run Outreach Agent</strong><br />to auto-draft personalised pitches for each account</p>
               </div>
             )}
 
-            {generating && (
-              <div className="h-full flex flex-col items-center justify-center text-center p-12 bg-white rounded-xl border border-slate-200">
-                <RefreshCw className="w-8 h-8 text-violet-400 animate-spin mb-3" />
-                <p className="text-sm text-slate-500">AI is writing a personalised pitch…</p>
-              </div>
-            )}
-
-            {pitch && selectedInfluencer && (
-              <div className="space-y-4">
-                {/* Fit score */}
-                <div className={`rounded-xl px-4 py-3 border flex items-center gap-3 ${
-                  pitch.fit_score >= 7 ? 'bg-green-50 border-green-200' :
-                  pitch.fit_score >= 4 ? 'bg-amber-50 border-amber-200' :
-                  'bg-red-50 border-red-200'
-                }`}>
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-black ${
-                    pitch.fit_score >= 7 ? 'bg-green-100 text-green-700' :
-                    pitch.fit_score >= 4 ? 'bg-amber-100 text-amber-700' :
-                    'bg-red-100 text-red-700'
-                  }`}>{pitch.fit_score}</div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-700">Product–Influencer Fit Score / 10</p>
-                    <p className="text-xs text-slate-600">{pitch.fit_reason}</p>
-                  </div>
+            {results.map((r, idx) => (
+              <div key={r.handle} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+                {/* Row header */}
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <span className={`text-xs px-2 py-0.5 rounded font-medium flex items-center gap-1 ${
+                    r.platform === "tiktok" ? "bg-black text-white" : "bg-gradient-to-r from-purple-500 to-pink-500 text-white"
+                  }`}>
+                    {r.platform === "tiktok" ? <TikTokIcon /> : <Instagram className="w-3 h-3" />}
+                  </span>
+                  <span className="font-semibold text-sm text-slate-800 flex-1">@{r.handle}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[r.status]}`}>
+                    {r.status === "generating" ? <span className="flex items-center gap-1"><RefreshCw className="w-3 h-3 animate-spin" /> Writing…</span> : r.status}
+                  </span>
+                  {r.status === "done" && (
+                    <button onClick={() => toggleExpand(idx)} className="text-slate-400 hover:text-slate-600">
+                      {r.expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    </button>
+                  )}
                 </div>
 
-                {/* DM notification preview */}
-                <div className="bg-slate-900 rounded-2xl p-4">
-                  <p className="text-xs text-slate-400 mb-2 font-medium uppercase tracking-wide">📱 Notification Preview</p>
-                  <div className="bg-slate-800 rounded-xl px-4 py-3 flex items-start gap-3">
-                    <img src={selectedInfluencer.avatar} className="w-8 h-8 rounded-full object-cover" />
-                    <div>
-                      <p className="text-xs font-semibold text-white">New message from your brand</p>
-                      <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{pitch.dm_preview}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Subject line (email) */}
-                <div className="bg-white rounded-xl border border-slate-200 px-4 py-3">
-                  <p className="text-xs text-slate-400 mb-1 font-medium">📧 Email Subject Line</p>
-                  <p className="text-sm font-semibold text-slate-800">{pitch.subject_line}</p>
-                </div>
-
-                {/* Full DM */}
-                <div className="bg-white rounded-xl border border-slate-200">
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+                {/* Fit score bar */}
+                {r.pitch && (
+                  <div className="px-4 pb-1">
                     <div className="flex items-center gap-2">
-                      <img src={selectedInfluencer.avatar} className="w-6 h-6 rounded-full" />
-                      <span className="text-sm font-semibold text-slate-800">{selectedInfluencer.handle}</span>
-                      <span className={`text-xs px-1.5 py-0.5 rounded font-medium flex items-center gap-1 ${PLATFORM_COLORS[selectedInfluencer.platform]}`}>
-                        {selectedInfluencer.platform === 'tiktok' ? <TikTokIcon /> : <Instagram className="w-3 h-3" />}
-                        {PLATFORM_LABELS[selectedInfluencer.platform]}
+                      <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${r.pitch.fit_score >= 7 ? 'bg-emerald-400' : r.pitch.fit_score >= 4 ? 'bg-amber-400' : 'bg-red-400'}`}
+                          style={{ width: `${r.pitch.fit_score * 10}%` }}
+                        />
+                      </div>
+                      <span className={`text-xs font-bold ${r.pitch.fit_score >= 7 ? 'text-emerald-600' : r.pitch.fit_score >= 4 ? 'text-amber-600' : 'text-red-500'}`}>
+                        {r.pitch.fit_score}/10
                       </span>
+                      <span className="text-xs text-slate-400">{r.pitch.fit_reason}</span>
                     </div>
-                    <Button size="sm" variant="outline" onClick={copyToClipboard} className="gap-1.5 text-xs h-7">
-                      <Copy className="w-3 h-3" />{copied ? 'Copied!' : 'Copy'}
-                    </Button>
                   </div>
-                  <div className="p-4">
+                )}
+
+                {/* Expanded pitch */}
+                {r.expanded && r.pitch && (
+                  <div className="px-4 pb-4 space-y-3 border-t border-slate-100 mt-2 pt-3">
+                    {/* Notification preview */}
+                    <div className="bg-slate-900 rounded-xl px-3 py-2.5 flex items-start gap-2">
+                      <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center shrink-0 mt-0.5">
+                        {r.platform === "tiktok" ? <TikTokIcon /> : <Instagram className="w-3 h-3 text-white" />}
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-white">New message</p>
+                        <p className="text-xs text-slate-400 mt-0.5">{r.pitch.dm_preview}</p>
+                      </div>
+                    </div>
+
+                    {/* Full DM */}
                     <div className="bg-slate-50 rounded-xl px-4 py-3">
-                      <p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">{pitch.dm_text}</p>
+                      <p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">{r.pitch.dm_text}</p>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => copyPitch(idx)} className="gap-1.5 flex-1">
+                        {r.copied ? <><CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> Copied!</> : <><Copy className="w-3.5 h-3.5" /> Copy DM</>}
+                      </Button>
+                      <div className="flex-1 text-xs text-slate-400 flex items-center px-3 bg-slate-50 rounded-lg border border-slate-200 font-mono">
+                        📧 {r.pitch.subject_line}
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
+              </div>
+            ))}
 
-                {/* Deal summary */}
-                <div className="bg-violet-50 border border-violet-200 rounded-xl px-4 py-3 grid grid-cols-3 gap-3 text-center">
-                  <div>
-                    <p className="text-xs text-violet-500 font-medium">Product Price</p>
-                    <p className="text-sm font-bold text-violet-800">${sellPrice}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-violet-500 font-medium">Their Code</p>
-                    <p className="text-sm font-bold text-violet-800">{discountCode}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-violet-500 font-medium">Commission</p>
-                    <p className="text-sm font-bold text-violet-800">{commission}% / sale</p>
-                  </div>
-                </div>
-
-                <Button onClick={generatePitch} variant="outline" className="w-full gap-2 text-sm">
-                  <RefreshCw className="w-3.5 h-3.5" /> Regenerate pitch
-                </Button>
+            {doneCount > 0 && doneCount === results.length && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-sm text-emerald-800 font-medium text-center">
+                ✅ {doneCount} pitch{doneCount !== 1 ? 'es' : ''} ready — copy each DM and send manually, or we'll automate delivery once validated.
               </div>
             )}
           </div>
