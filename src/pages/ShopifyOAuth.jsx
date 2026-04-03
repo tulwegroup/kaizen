@@ -15,7 +15,7 @@ export default function ShopifyOAuth() {
   const [publishResult, setPublishResult] = useState(null);
   const [copied, setCopied] = useState(false);
 
-  const stableUrl = `${window.location.origin}/shopify-oauth`;
+  const stableUrl = "https://massive-nexus-commerce-flow.base44.app/shopify-oauth";
   const shopDomain = "0znmx9-vj.myshopify.com";
 
   useEffect(() => {
