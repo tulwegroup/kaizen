@@ -15,6 +15,7 @@ import InfluencerEngine from './pages/InfluencerEngine';
 import ShopifyOAuth from './pages/ShopifyOAuth';
 import { ShoppingBag } from 'lucide-react';
 import PipelineTest from './pages/PipelineTest';
+import ShopifyThemeBuilder from './pages/ShopifyThemeBuilder';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -48,6 +49,7 @@ const AuthenticatedApp = () => {
     <Route path="/outreach-center" element={<OutreachCenter />} />
       <Route path="/shopify-oauth" element={<ShopifyOAuth />} />
       <Route path="/pipeline-test" element={<PipelineTest />} />
+      <Route path="/shopify-theme" element={<ShopifyThemeBuilder />} />
       <Route path="/influencer-engine" element={<InfluencerEngine />} />
       <Route path="/influencer-crm" element={<InfluencerCRM />} />
       <Route path="/agent-research" element={<AgentResearch />} />
