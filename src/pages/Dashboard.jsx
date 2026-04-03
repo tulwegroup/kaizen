@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Sparkles, Users, FlaskConical, ShoppingBag, Zap, Mail } from "lucide-react";
+import { Sparkles, Users, FlaskConical, ShoppingBag, Zap, Mail, Send } from "lucide-react";
 
 const MENU_ITEMS = [
   {
@@ -51,6 +51,16 @@ const MENU_ITEMS = [
     description: "Validate the end-to-end CJ Dropshipping → Shopify product sync pipeline.",
     badge: "Dev Tools",
     badgeColor: "bg-emerald-100 text-emerald-700",
+  },
+  {
+    to: "/outreach-tester",
+    icon: Send,
+    color: "bg-violet-100 text-violet-600",
+    border: "border-violet-200 hover:border-violet-400",
+    title: "🧪 Outreach Tester",
+    description: "Preview AI-generated influencer pitches on test accounts (TikTok & Instagram) before going live.",
+    badge: "Test Mode",
+    badgeColor: "bg-violet-100 text-violet-700",
   },
   {
     to: "/outreach-center",

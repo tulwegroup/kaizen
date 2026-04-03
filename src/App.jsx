@@ -6,6 +6,7 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 // Add page imports here
+import OutreachTester from './pages/OutreachTester';
 import Dashboard from './pages/Dashboard';
 import AutomatedPipeline from './pages/AutomatedPipeline';
 import OutreachCenter from './pages/OutreachCenter';
@@ -53,6 +54,7 @@ const AuthenticatedApp = () => {
       <Route path="/influencer-engine" element={<InfluencerEngine />} />
       <Route path="/influencer-crm" element={<InfluencerCRM />} />
       <Route path="/agent-research" element={<AgentResearch />} />
+      <Route path="/outreach-tester" element={<OutreachTester />} />
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );
