@@ -9,15 +9,31 @@ import NicheSelector from "@/components/agent/NicheSelector";
 import ProductCard from "@/components/agent/ProductCard";
 import ProfitTable from "@/components/agent/ProfitTable";
 import InfluencerLandscape from "@/components/agent/InfluencerLandscape";
-import { Sparkles, TrendingUp, DollarSign, Users, RefreshCw, AlertTriangle } from "lucide-react";
+import { Sparkles, TrendingUp, DollarSign, Users, RefreshCw, AlertTriangle, ShoppingBag } from "lucide-react";
 
 export default function AgentResearch() {
   const [regions, setRegions] = useState([]);
   const [niches, setNiches] = useState([]);
   const [period, setPeriod] = useState('1month');
+  const [importingAll, setImportingAll] = useState(false);
+  const [importAllResult, setImportAllResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+
+  const importAll = async () => {
+    if (!result?.products?.length) return;
+    setImportingAll(true);
+    setImportAllResult(null);
+    let succeeded = 0, failed = 0;
+    for (const product of result.products) {
+      const res = await base44.functions.invoke('importResearchProduct', { product });
+      if (res.data?.success) succeeded++;
+      else failed++;
+    }
+    setImportAllResult({ succeeded, failed });
+    setImportingAll(false);
+  };
 
   const run = async () => {
     if (regions.length === 0) return;
@@ -91,14 +107,40 @@ export default function AgentResearch() {
         )}
 
         {result && (
-          <div className="space-y-6">
-            {/* Period badge */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs bg-emerald-100 text-emerald-700 font-semibold px-3 py-1 rounded-full">
-                📅 Projection period: {result.period_label}
-              </span>
-              <span className="text-xs text-slate-400">{result.research_date ? new Date(result.research_date).toLocaleString() : ''}</span>
-            </div>
+        <div className="space-y-6">
+        {/* Import All Banner */}
+        <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-4 py-3">
+          <div>
+            <p className="text-sm font-semibold text-slate-800">Import all {result.products?.length} products to Shopify</p>
+            <p className="text-xs text-slate-500">Creates all products as drafts with images, descriptions & inventory</p>
+          </div>
+          <div className="flex items-center gap-3">
+            {importAllResult && (
+              <p className="text-xs text-emerald-700 font-medium">
+                ✓ {importAllResult.succeeded} imported{importAllResult.failed > 0 ? `, ${importAllResult.failed} failed` : ''}
+              </p>
+            )}
+            <Button
+              onClick={importAll}
+              disabled={importingAll}
+              className="bg-slate-800 hover:bg-slate-700 text-white text-sm"
+            >
+              {importingAll ? (
+                <span className="flex items-center gap-2"><RefreshCw className="w-4 h-4 animate-spin" /> Importing…</span>
+              ) : (
+                <span className="flex items-center gap-2"><ShoppingBag className="w-4 h-4" /> Import All to Shopify</span>
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {/* Period badge */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs bg-emerald-100 text-emerald-700 font-semibold px-3 py-1 rounded-full">
+            📅 Projection period: {result.period_label}
+          </span>
+          <span className="text-xs text-slate-400">{result.research_date ? new Date(result.research_date).toLocaleString() : ''}</span>
+        </div>
             {/* Summary KPIs */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Card className="bg-violet-50 border-violet-100">

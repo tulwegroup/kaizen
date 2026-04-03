@@ -1,8 +1,7 @@
 /**
  * importResearchProduct
  * Enriches a research-agent product with real images + rich HTML description via LLM,
- * then creates it as a Shopify draft product.
- * Images are fetched as bytes and sent as base64 attachments to avoid hotlink blocking.
+ * then creates it as a Shopify draft product with inventory and images.
  */
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
@@ -29,6 +28,17 @@ async function fetchImageAsBase64(url) {
   }
 }
 
+async function shopifyRequest(domain, token, method, path, body) {
+  const res = await fetch(`https://${domain}/admin/api/2026-01/${path}`, {
+    method,
+    headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': token },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(`Shopify [${res.status}] ${JSON.stringify(data)}`);
+  return data;
+}
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return Response.json({ error: 'POST only' }, { status: 405 });
 
@@ -46,24 +56,23 @@ Deno.serve(async (req) => {
   const token = sessions[0]?.access_token;
   if (!token) return Response.json({ error: 'No Shopify session. Complete OAuth first.' }, { status: 401 });
 
-  // Phase 1: Enrich product with images, description, tags via LLM + internet
+  // Phase 1: Enrich via LLM + internet
   const enriched = await base44.integrations.Core.InvokeLLM({
     prompt: `You are a product listing specialist for a dropshipping store.
 
 Research the product "${product.product_name}" (niche: ${product.niche}, region: ${product.region || 'global'}).
 
 Return:
-1. image_urls: 5 direct product image URLs. IMPORTANT: Use only direct CDN image URLs from sources like:
+1. image_urls: 5 direct product image URLs. Use only CDN sources that allow hotlinking:
    - Unsplash (https://images.unsplash.com/photo-...)
    - Pexels CDN (https://images.pexels.com/photos/...)
    - Wikimedia (https://upload.wikimedia.org/...)
-   - Direct .jpg/.png/.webp from product manufacturer sites
-   DO NOT use Amazon, AliExpress, eBay, or any marketplace that blocks hotlinking.
-   Each URL must end in .jpg, .jpeg, .png, or .webp.
-2. body_html: A compelling, SEO-optimized HTML product description (3-4 paragraphs) using <p>, <ul>, <li>, <strong> tags. Include: what it is, key benefits, who it's for, why they'll love it.
-3. meta_title: SEO meta title, 60 chars max
+   - Direct .jpg/.png/.webp from manufacturer/brand sites
+   DO NOT use Amazon, AliExpress, eBay or any marketplace.
+2. body_html: SEO-optimized HTML product description (3-4 paragraphs) using <p>, <ul>, <li>, <strong>. Include: what it is, key benefits, who it's for.
+3. meta_title: SEO title, 60 chars max
 4. meta_description: 155 chars max
-5. tags: 8-10 relevant product tags as array
+5. tags: 8-10 relevant tags as array
 6. product_type: most accurate category name
 
 Context:
@@ -87,16 +96,14 @@ Context:
     }
   });
 
-  // Phase 2: Create Shopify product (without images first)
-  const allTags = [
-    ...(enriched.tags || []),
-    product.niche,
-    product.search_trend,
-    'research-agent',
-    product.region,
-  ].filter(Boolean);
+  // Phase 2: Get the primary Shopify location (needed for inventory)
+  const locationsData = await shopifyRequest(shopDomain, token, 'GET', 'locations.json');
+  const locationId = locationsData.locations?.[0]?.id;
 
-  const shopifyPayload = {
+  // Phase 3: Create Shopify product
+  const allTags = [...(enriched.tags || []), product.niche, product.search_trend, 'research-agent', product.region].filter(Boolean);
+
+  const created = await shopifyRequest(shopDomain, token, 'POST', 'products.json', {
     product: {
       title: product.product_name,
       body_html: enriched.body_html || `<p>${product.why_it_works || ''}</p>`,
@@ -106,60 +113,47 @@ Context:
       tags: allTags.join(', '),
       metafields_global_title_tag: enriched.meta_title || product.product_name,
       metafields_global_description_tag: enriched.meta_description || '',
-      variants: [
-        {
-          price: String(product.recommended_sell_price || '0.00'),
-          compare_at_price: product.recommended_sell_price
-            ? String(Math.round(product.recommended_sell_price * 1.4 * 100) / 100)
-            : null,
-          sku: `RA-${product.product_name.replace(/\s+/g, '-').toUpperCase().substring(0, 20)}-${Date.now()}`,
-          inventory_management: 'shopify',
-          inventory_policy: 'deny',
-          fulfillment_service: 'manual',
-          taxable: true,
-        },
-      ],
+      variants: [{
+        price: String(product.recommended_sell_price || '0.00'),
+        compare_at_price: product.recommended_sell_price
+          ? String(Math.round(product.recommended_sell_price * 1.4 * 100) / 100)
+          : null,
+        sku: `RA-${product.product_name.replace(/\s+/g, '-').toUpperCase().substring(0, 20)}-${Date.now()}`,
+        inventory_management: 'shopify',
+        inventory_policy: 'deny',
+        fulfillment_service: 'manual',
+        taxable: true,
+      }],
     },
-  };
-
-  const createRes = await fetch(`https://${shopDomain}/admin/api/2026-01/products.json`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': token },
-    body: JSON.stringify(shopifyPayload),
   });
 
-  if (!createRes.ok) {
-    const errText = await createRes.text();
-    return Response.json({ error: `Shopify product create error [${createRes.status}]: ${errText}` }, { status: 502 });
+  const shopifyProductId = created.product.id;
+  const inventoryItemId = created.product.variants?.[0]?.inventory_item_id;
+
+  // Phase 4: Set inventory quantity (requires location)
+  if (locationId && inventoryItemId) {
+    await shopifyRequest(shopDomain, token, 'POST', 'inventory_levels/set.json', {
+      location_id: locationId,
+      inventory_item_id: inventoryItemId,
+      available: 999,
+    });
   }
 
-  const created = await createRes.json();
-  const shopifyProductId = created.product.id;
-
-  // Phase 3: Fetch image bytes and upload to Shopify as base64 attachments
+  // Phase 5: Upload images as base64 attachments
   const imageUrls = (enriched.image_urls || []).filter(u => u && u.startsWith('http'));
   let imagesImported = 0;
-
   for (let i = 0; i < imageUrls.length; i++) {
     const attachment = await fetchImageAsBase64(imageUrls[i]);
     if (!attachment) continue;
-
-    const imgRes = await fetch(`https://${shopDomain}/admin/api/2026-01/products/${shopifyProductId}/images.json`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': token },
-      body: JSON.stringify({
-        image: {
-          attachment,
-          alt: `${product.product_name} - Image ${i + 1}`,
-          position: i + 1,
-        }
-      }),
-    });
-
-    if (imgRes.ok) imagesImported++;
+    try {
+      await shopifyRequest(shopDomain, token, 'POST', `products/${shopifyProductId}/images.json`, {
+        image: { attachment, alt: `${product.product_name} - Image ${i + 1}`, position: i + 1 },
+      });
+      imagesImported++;
+    } catch { /* skip failed image */ }
   }
 
-  // Save ShopifyMapping record
+  // Save mapping
   await base44.asServiceRole.entities.ShopifyMapping.create({
     entity_type: 'product',
     canonical_id: `research-${shopifyProductId}`,
@@ -186,5 +180,6 @@ Context:
     title: created.product.title,
     status: created.product.status,
     images_imported: imagesImported,
+    inventory_set: locationId && inventoryItemId ? true : false,
   });
 });
