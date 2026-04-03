@@ -167,6 +167,17 @@ export default function ShopifyThemeBuilder() {
               {error && (
                 <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4 text-sm text-red-700">
                   ❌ {error}
+                  {error.toLowerCase().includes('write_themes') || error.toLowerCase().includes('403') || error.toLowerCase().includes('scope') ? (
+                    <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800">
+                      <p className="font-semibold mb-1">⚠️ Missing Shopify Permission</p>
+                      <p className="text-xs mb-2">Your Shopify token is missing the <code className="bg-amber-100 px-1 rounded">write_themes</code> scope. You need to re-authorize the app.</p>
+                      <Link to="/shopify-oauth">
+                        <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white gap-1.5">
+                          Go to Shopify Connect → Re-authorize
+                        </Button>
+                      </Link>
+                    </div>
+                  ) : null}
                 </div>
               )}
 
