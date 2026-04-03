@@ -419,13 +419,33 @@ Also return:
                       <p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">{r.pitch.dm_text}</p>
                     </div>
 
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => copyPitch(idx)} className="gap-1.5 flex-1">
-                        {r.copied ? <><CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> Copied!</> : <><Copy className="w-3.5 h-3.5" /> Copy DM</>}
+                    <div className="flex gap-2 flex-wrap">
+                      {/* Copy & Open — one click to send */}
+                      <Button
+                        size="sm"
+                        className="gap-1.5 flex-1 bg-black hover:bg-slate-800 text-white"
+                        onClick={() => {
+                          navigator.clipboard.writeText(r.pitch.dm_text);
+                          const url = r.platform === "tiktok"
+                            ? `https://www.tiktok.com/@${r.handle}`
+                            : `https://www.instagram.com/${r.handle}/`;
+                          window.open(url, "_blank");
+                          setResults(prev => prev.map((x, i) => i === idx ? { ...x, copied: true } : x));
+                          setTimeout(() => setResults(prev => prev.map((x, i) => i === idx ? { ...x, copied: false } : x)), 3000);
+                        }}
+                      >
+                        {r.platform === "tiktok" ? <TikTokIcon /> : <Instagram className="w-3.5 h-3.5" />}
+                        {r.copied ? "Copied! Paste in DM ↗" : `Copy & Open ${r.platform === "tiktok" ? "TikTok" : "Instagram"} ↗`}
                       </Button>
-                      <div className="flex-1 text-xs text-slate-400 flex items-center px-3 bg-slate-50 rounded-lg border border-slate-200 font-mono">
-                        📧 {r.pitch.subject_line}
-                      </div>
+                      <Button size="sm" variant="outline" onClick={() => copyPitch(idx)} className="gap-1.5">
+                        <Copy className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                    {r.copied && (
+                      <p className="text-xs text-emerald-600 font-medium mt-1">✅ DM copied to clipboard — just paste it into the chat and hit send!</p>
+                    )}
+                    <div className="text-xs text-slate-400 flex items-center px-3 py-2 bg-slate-50 rounded-lg border border-slate-200 font-mono">
+                      📧 {r.pitch.subject_line}
                     </div>
                   </div>
                 )}
