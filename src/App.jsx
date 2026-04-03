@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 // Add page imports here
 import Dashboard from './pages/Dashboard';
+import AutomatedPipeline from './pages/AutomatedPipeline';
 import InfluencerCRM from './pages/InfluencerCRM';
 import AgentResearch from './pages/AgentResearch';
 import InfluencerEngine from './pages/InfluencerEngine';
@@ -41,6 +42,7 @@ const AuthenticatedApp = () => {
     <Routes>
     {/* Add your page Route elements here */}
     <Route path="/" element={<Dashboard />} />
+    <Route path="/automated-pipeline" element={<AutomatedPipeline />} />
       <Route path="/shopify-oauth" element={<ShopifyOAuth />} />
       <Route path="/pipeline-test" element={<PipelineTest />} />
       <Route path="/influencer-engine" element={<InfluencerEngine />} />

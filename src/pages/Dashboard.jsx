@@ -1,7 +1,17 @@
 import { Link } from "react-router-dom";
-import { Sparkles, Users, FlaskConical, ShoppingBag, Zap, Settings } from "lucide-react";
+import { Sparkles, Users, FlaskConical, ShoppingBag, Zap } from "lucide-react";
 
 const MENU_ITEMS = [
+  {
+    to: "/automated-pipeline",
+    icon: Zap,
+    color: "bg-slate-900 text-white",
+    border: "border-slate-300 hover:border-slate-500",
+    title: "🚀 Full Automated Pipeline",
+    description: "One click: AI research → Shopify import → influencer outreach. Fully hands-off.",
+    badge: "Auto",
+    badgeColor: "bg-slate-900 text-white",
+  },
   {
     to: "/agent-research",
     icon: Sparkles,
