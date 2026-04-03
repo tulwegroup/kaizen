@@ -65,10 +65,9 @@ export default function OutreachTester() {
     const lines = inputLine.split(/[\n,]+/).map(l => l.trim()).filter(Boolean);
     const newAccts = lines.map(raw => {
       const platform = detectPlatform(raw);
-      // strip prefix if user typed tt: or ig:
       const stripped = raw.replace(/^(tt:|ig:)/i, "");
       const handle = cleanHandle(stripped);
-      return { raw, handle, platform };
+      return { raw, handle, platform, email: "" };
     });
     setAccounts(prev => {
       const existing = new Set(prev.map(a => a.handle.toLowerCase()));
@@ -78,6 +77,7 @@ export default function OutreachTester() {
   };
 
   const removeAccount = (handle) => setAccounts(prev => prev.filter(a => a.handle !== handle));
+  const setEmail = (handle, email) => setAccounts(prev => prev.map(a => a.handle === handle ? { ...a, email } : a));
 
   const togglePlatform = (handle) => setAccounts(prev =>
     prev.map(a => a.handle === handle
@@ -89,7 +89,7 @@ export default function OutreachTester() {
   const runAgent = async () => {
     if (!accounts.length || !activeProduct.name) return;
     setRunning(true);
-    setResults(accounts.map(a => ({ ...a, status: "pending", pitch: null, error: null, expanded: false, copied: false })));
+    setResults(accounts.map(a => ({ ...a, status: "pending", pitch: null, error: null, expanded: false, copied: false, sent: false, sending: false })));
 
     for (let i = 0; i < accounts.length; i++) {
       const acct = accounts[i];
@@ -130,8 +130,25 @@ Also return:
         }
       });
 
+      // Auto-send email if address provided
+      let sent = false;
+      let sendError = null;
+      if (acct.email && acct.email.includes("@")) {
+        setResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: "done", pitch: res, expanded: true, sending: true } : r));
+        const sendRes = await base44.functions.invoke("sendInfluencerPitch", {
+          to_email: acct.email,
+          handle: acct.handle,
+          platform: acct.platform,
+          subject: res.subject_line,
+          dm_text: res.dm_text,
+          product_name: activeProduct.name,
+        });
+        sent = sendRes.data?.success || false;
+        sendError = sendRes.data?.error || null;
+      }
+
       setResults(prev => prev.map((r, idx) =>
-        idx === i ? { ...r, status: "done", pitch: res, expanded: true } : r
+        idx === i ? { ...r, status: "done", pitch: res, expanded: true, sending: false, sent, sendError } : r
       ));
     }
 
@@ -215,6 +232,25 @@ Also return:
                         </button>
                       </div>
                     ))}
+                    {/* Email fields */}
+                    {accounts.length > 0 && (
+                      <div className="pt-2 space-y-2">
+                        <p className="text-xs text-slate-400 font-medium">Email addresses for auto-delivery (optional)</p>
+                        {accounts.map(acct => (
+                          <div key={acct.handle + "-email"} className="flex items-center gap-2">
+                            <span className="text-xs text-slate-400 font-mono w-28 truncate shrink-0">@{acct.handle}</span>
+                            <input
+                              type="email"
+                              placeholder="contact@email.com"
+                              value={acct.email || ""}
+                              onChange={e => setEmail(acct.handle, e.target.value)}
+                              className="flex-1 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-violet-300"
+                            />
+                          </div>
+                        ))}
+                        <p className="text-xs text-slate-400">💡 Pitch will be auto-sent immediately after it's generated.</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -331,6 +367,20 @@ Also return:
                     </button>
                   )}
                 </div>
+                {/* Send status */}
+                {r.sending && (
+                  <div className="px-4 pb-2 text-xs text-amber-600 flex items-center gap-1">
+                    <RefreshCw className="w-3 h-3 animate-spin" /> Sending email…
+                  </div>
+                )}
+                {r.sent && (
+                  <div className="px-4 pb-2 text-xs text-emerald-600 flex items-center gap-1">
+                    <CheckCircle className="w-3 h-3" /> Email delivered to {r.email}
+                  </div>
+                )}
+                {r.sendError && (
+                  <div className="px-4 pb-2 text-xs text-red-500">Send failed: {r.sendError}</div>
+                )}
 
                 {/* Fit score bar */}
                 {r.pitch && (
