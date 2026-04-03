@@ -61,6 +61,14 @@ export default function ShopifyOAuth() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const reauthorize = async () => {
+    const res = await base44.functions.invoke("shopifyOAuth", {
+      action: "get_auth_url",
+      stable_callback_url: stableUrl,
+    });
+    window.open(res.data.auth_url, "_blank", "noopener,noreferrer");
+  };
+
   const publishAllDrafts = async () => {
     setPublishing(true);
     setPublishResult(null);
@@ -116,9 +124,7 @@ export default function ShopifyOAuth() {
           <div className="bg-slate-900 rounded-xl p-4 text-left mb-6 overflow-auto max-h-48">
             <pre className="text-red-400 text-xs whitespace-pre-wrap">{JSON.stringify(result, null, 2)}</pre>
           </div>
-          <a href={`${stableUrl}?action=start`}>
-            <Button variant="outline" className="w-full">Try Again</Button>
-          </a>
+          <Button variant="outline" className="w-full" onClick={reauthorize}>Try Again</Button>
         </div>
       </div>
     );
@@ -179,11 +185,9 @@ export default function ShopifyOAuth() {
                   <ShoppingBag className="w-4 h-4" /> Shopify Admin <ExternalLink className="w-3.5 h-3.5" />
                 </Button>
               </a>
-              <a href={`${stableUrl}?action=start`}>
-                <Button variant="outline" className="border-green-300 text-green-100 hover:bg-green-700 gap-2 w-full text-sm">
-                  <RefreshCw className="w-3.5 h-3.5" /> Re-authorize
-                </Button>
-              </a>
+              <Button onClick={reauthorize} variant="outline" className="border-green-300 text-green-100 hover:bg-green-700 gap-2 w-full text-sm">
+                <RefreshCw className="w-3.5 h-3.5" /> Re-authorize
+              </Button>
             </div>
           </div>
         </div>
