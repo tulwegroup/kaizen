@@ -32,112 +32,113 @@ Deno.serve(async (req) => {
     : 'fashion, beauty, lifestyle, tech, fitness, home, viral, digital, pet, baby, gaming, outdoor, kitchen, wellness';
   const regionsStr = regions.join(', ');
 
-  // Phase 1: Research trending products — request 20-25 diverse items
-  const productResearch = await base44.integrations.Core.InvokeLLM({
-    prompt: `You are a top-tier e-commerce market research agent. Research CURRENT trending products in these regions: ${regionsStr}.
+  // Run both LLM calls in parallel
+  const [productResearch, influencerResearch] = await Promise.all([
+    base44.integrations.Core.InvokeLLM({
+      prompt: `You are a top-tier e-commerce market research agent. Research CURRENT trending products in these regions: ${regionsStr}.
 Niches to cover: ${nichesStr}.
 
 CRITICAL: Return AT LEAST 20 products. Aim for 25. Mix them across:
 
-1. PHYSICAL VIRAL PRODUCTS — Things blowing up on TikTok Shop, Amazon, AliExpress RIGHT NOW (e.g. gadgets, beauty tools, home organizers, fashion accessories, LED items, massage tools, kitchen gadgets)
+1. PHYSICAL VIRAL PRODUCTS — Things blowing up on TikTok Shop, Amazon, AliExpress RIGHT NOW (gadgets, beauty tools, home organizers, fashion accessories, LED items, massage tools, kitchen gadgets)
 2. DIGITAL PRODUCTS — Zero COGS, 90%+ margin. Examples: AI prompt packs, Notion templates, Canva templates, digital planners, ebooks on trending topics, ChatGPT guides, aesthetic wallpaper packs, social media templates
-3. TRENDING CONTENT / AI TOOLS — Products riding viral content trends: AI photo editors, viral filter tools, aesthetic presets, journaling kits, manifestation products, astrology content
+3. TRENDING CONTENT / AI TOOLS — Products riding viral content trends: AI photo editors, viral filter tools, aesthetic presets, journaling kits, manifestation products
 4. SEASONAL / HOT RIGHT NOW — Products tied to current season, upcoming holidays, trending events
-5. DIGITAL COURSES & GUIDES — "How to make money with X", skincare routines, fitness plans, trading guides — anything trending in the self-improvement/financial space
+5. DIGITAL COURSES & GUIDES — "How to make money with X", skincare routines, fitness plans, trading guides
 
 For DIGITAL products: estimated_cogs = 0, product_type = "digital"
 For PHYSICAL products: product_type = "physical"
 
 For EACH product return:
 - product_name (specific brand/type, not generic)
-- product_type: "physical" or "digital"  
+- product_type: "physical" or "digital"
 - niche: fashion|beauty|lifestyle|tech|fitness|home|viral|digital|pet|baby|gaming|outdoor|kitchen|wellness|auto
 - region: which regions this sells best in
 - estimated_cogs: USD (0 for digital)
 - recommended_sell_price: USD
 - gross_margin_pct: number
 - search_trend: "rising"|"peak"|"stable"
-- why_it_works: 2 sentences — WHY it's hot right now, what's driving demand
-- cj_search_keywords: 3 keywords (for digital: where to sell e.g. "Gumroad, Etsy, Shopify digital")
+- why_it_works: 2 sentences — WHY it's hot right now
+- cj_search_keywords: 3 keywords (for digital: platform to sell on e.g. "Gumroad, Etsy, Shopify digital")
 - target_audience: who buys this
 - top_platforms: best social platforms
 - image_url: real accessible .jpg/.png/.webp URL`,
-    add_context_from_internet: true,
-    model: 'gemini_3_flash',
-    response_json_schema: {
-      type: 'object',
-      properties: {
-        products: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              product_name: { type: 'string' },
-              product_type: { type: 'string' },
-              niche: { type: 'string' },
-              region: { type: 'string' },
-              estimated_cogs: { type: 'number' },
-              recommended_sell_price: { type: 'number' },
-              gross_margin_pct: { type: 'number' },
-              search_trend: { type: 'string' },
-              why_it_works: { type: 'string' },
-              cj_search_keywords: { type: 'array', items: { type: 'string' } },
-              target_audience: { type: 'string' },
-              top_platforms: { type: 'array', items: { type: 'string' } },
-              image_url: { type: 'string' },
+      add_context_from_internet: true,
+      model: 'gemini_3_flash',
+      response_json_schema: {
+        type: 'object',
+        properties: {
+          products: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                product_name: { type: 'string' },
+                product_type: { type: 'string' },
+                niche: { type: 'string' },
+                region: { type: 'string' },
+                estimated_cogs: { type: 'number' },
+                recommended_sell_price: { type: 'number' },
+                gross_margin_pct: { type: 'number' },
+                search_trend: { type: 'string' },
+                why_it_works: { type: 'string' },
+                cj_search_keywords: { type: 'array', items: { type: 'string' } },
+                target_audience: { type: 'string' },
+                top_platforms: { type: 'array', items: { type: 'string' } },
+                image_url: { type: 'string' },
+              }
             }
-          }
-        },
-        market_summary: { type: 'string' }
+          },
+          market_summary: { type: 'string' }
+        }
       }
-    }
-  });
+    }),
 
-  // Phase 2: Influencer landscape (parallel)
-  const influencerResearch = await base44.integrations.Core.InvokeLLM({
-    prompt: `You are an influencer marketing research agent. For regions: ${regionsStr} and niches: ${nichesStr}, research the influencer landscape.
+    base44.integrations.Core.InvokeLLM({
+      prompt: `You are an influencer marketing research agent. For regions: ${regionsStr} and niches: ${nichesStr}, research the influencer landscape.
 
 Existing influencers: 
 ${profileSummary || 'None yet'}
 
 Provide recommended influencer types and regional strategies.`,
-    add_context_from_internet: true,
-    model: 'gemini_3_flash',
-    response_json_schema: {
-      type: 'object',
-      properties: {
-        recommended_influencer_types: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              platform: { type: 'string' },
-              niche: { type: 'string' },
-              region: { type: 'string' },
-              follower_range: { type: 'string' },
-              expected_engagement_rate: { type: 'number' },
-              avg_cost_per_post: { type: 'number' },
-              why_effective: { type: 'string' },
+      add_context_from_internet: true,
+      model: 'gemini_3_flash',
+      response_json_schema: {
+        type: 'object',
+        properties: {
+          recommended_influencer_types: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                platform: { type: 'string' },
+                niche: { type: 'string' },
+                region: { type: 'string' },
+                follower_range: { type: 'string' },
+                expected_engagement_rate: { type: 'number' },
+                avg_cost_per_post: { type: 'number' },
+                why_effective: { type: 'string' },
+              }
             }
-          }
-        },
-        regional_strategies: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              region: { type: 'string' },
-              best_platform: { type: 'string' },
-              peak_posting_time: { type: 'string' },
-              content_style: { type: 'string' },
+          },
+          regional_strategies: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                region: { type: 'string' },
+                best_platform: { type: 'string' },
+                peak_posting_time: { type: 'string' },
+                content_style: { type: 'string' },
+              }
             }
           }
         }
       }
-    }
-  });
+    }),
+  ]);
 
-  // Phase 3: Profit projections
+  // Profit projections
   const products = productResearch.products || [];
 
   const NUM_INFLUENCERS = 5;
@@ -184,7 +185,7 @@ Provide recommended influencer types and regional strategies.`,
         (product.gross_margin_pct * 0.4) +
         (Number(roi) * 0.3) +
         (product.search_trend === 'rising' ? 20 : product.search_trend === 'peak' ? 12 : 5) +
-        (isDigital ? 15 : 0) // bonus for digital (no inventory risk)
+        (isDigital ? 15 : 0)
       ),
     };
   });
