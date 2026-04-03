@@ -13,6 +13,8 @@ export default function ShopifyOAuth() {
   const [result, setResult] = useState(null);
   const [publishing, setPublishing] = useState(false);
   const [publishResult, setPublishResult] = useState(null);
+  const [storefrontPublishing, setStorefrontPublishing] = useState(false);
+  const [storefrontResult, setStorefrontResult] = useState(null);
   const [copied, setCopied] = useState(false);
 
   const stableUrl = "https://massive-nexus-commerce-flow.base44.app/shopify-oauth";
@@ -75,6 +77,14 @@ export default function ShopifyOAuth() {
     const res = await base44.functions.invoke("publishAllDrafts", {});
     setPublishResult(res.data);
     setPublishing(false);
+  };
+
+  const publishToStorefront = async () => {
+    setStorefrontPublishing(true);
+    setStorefrontResult(null);
+    const res = await base44.functions.invoke("publishProductsToStorefront", {});
+    setStorefrontResult(res.data);
+    setStorefrontPublishing(false);
   };
 
   if (status === "loading") {
@@ -249,6 +259,39 @@ export default function ShopifyOAuth() {
               style={{ background: publishing ? undefined : "#008060" }}
             >
               {publishing ? <><RefreshCw className="w-4 h-4 animate-spin" />Publishing…</> : <><Zap className="w-4 h-4" />Publish All Drafts</>}
+            </Button>
+          </div>
+
+          {/* Publish to Storefront */}
+          <div className="bg-white rounded-2xl border border-green-200 shadow-sm p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
+                <Globe className="w-5 h-5 text-green-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-slate-900">Publish to Storefront</h3>
+                <p className="text-xs text-slate-500">Make all products visible on the new theme</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-600 mb-4">Sets <code className="bg-slate-100 px-1 rounded text-xs">published_at</code> on every product so they appear in your Online Store — required after activating a new theme.</p>
+            {storefrontResult && (
+              <div className={`rounded-xl px-4 py-3 mb-4 text-sm ${
+                storefrontResult.published > 0 ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-slate-50 text-slate-600 border border-slate-200'
+              }`}>
+                {storefrontResult.published > 0
+                  ? `✅ ${storefrontResult.published} of ${storefrontResult.total} products published to storefront${storefrontResult.failed ? ` · ${storefrontResult.failed} failed` : ''}`
+                  : 'No products found'}
+              </div>
+            )}
+            <Button
+              onClick={publishToStorefront}
+              disabled={storefrontPublishing}
+              className="w-full gap-2"
+              style={{ background: storefrontPublishing ? undefined : "#008060" }}
+            >
+              {storefrontPublishing
+                ? <><RefreshCw className="w-4 h-4 animate-spin" />Publishing to storefront…</>
+                : <><Zap className="w-4 h-4" />Publish All to Storefront</>}
             </Button>
           </div>
 
