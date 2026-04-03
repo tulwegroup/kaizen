@@ -5,12 +5,15 @@ const NICHES = [
   { id: "tech", label: "📱 Tech" },
   { id: "fitness", label: "💪 Fitness" },
   { id: "home", label: "🛋️ Home" },
-  { id: "digital", label: "🎨 Digital Content" },
-  { id: "education", label: "📚 Digital Education" },
+  { id: "digital", label: "🎨 Digital Products" },
+  { id: "viral", label: "🔥 Viral / TikTok" },
+  { id: "wellness", label: "🧘 Wellness" },
   { id: "gaming", label: "🎮 Gaming" },
   { id: "pet", label: "🐾 Pet Products" },
-  { id: "kids", label: "👶 Kids & Toys" },
+  { id: "baby", label: "👶 Baby & Kids" },
   { id: "outdoor", label: "🏕️ Outdoor & Travel" },
+  { id: "kitchen", label: "🍳 Kitchen" },
+  { id: "auto", label: "🚗 Auto Accessories" },
 ];
 
 export default function NicheSelector({ selected, onChange }) {

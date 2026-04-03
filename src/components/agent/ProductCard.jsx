@@ -22,6 +22,15 @@ const nicheColor = {
   tech: "bg-blue-100 text-blue-700",
   fitness: "bg-green-100 text-green-700",
   home: "bg-amber-100 text-amber-700",
+  digital: "bg-purple-100 text-purple-700",
+  viral: "bg-red-100 text-red-700",
+  wellness: "bg-teal-100 text-teal-700",
+  gaming: "bg-indigo-100 text-indigo-700",
+  pet: "bg-orange-100 text-orange-700",
+  baby: "bg-yellow-100 text-yellow-700",
+  outdoor: "bg-lime-100 text-lime-700",
+  kitchen: "bg-amber-100 text-amber-700",
+  auto: "bg-slate-100 text-slate-700",
 };
 
 export default function ProductCard({ product, rank }) {
@@ -53,7 +62,12 @@ export default function ProductCard({ product, rank }) {
         </div>
       </div>
 
-      <h3 className="font-semibold text-slate-800 text-sm mb-1">{product.product_name}</h3>
+      <div className="flex items-start justify-between gap-1 mb-1">
+        <h3 className="font-semibold text-slate-800 text-sm">{product.product_name}</h3>
+        {product.product_type === 'digital' && (
+          <span className="shrink-0 text-xs px-1.5 py-0.5 rounded bg-purple-600 text-white font-bold">DIGITAL</span>
+        )}
+      </div>
       <p className="text-xs text-slate-500 mb-3">{product.region}</p>
 
       <div className="flex gap-1 flex-wrap mb-3">
@@ -68,7 +82,7 @@ export default function ProductCard({ product, rank }) {
       <div className="grid grid-cols-3 gap-2 mb-3 text-center">
         <div className="bg-slate-50 rounded-lg p-2">
           <p className="text-xs text-slate-500">Cost</p>
-          <p className="text-sm font-bold text-slate-800">${product.estimated_cogs}</p>
+          <p className="text-sm font-bold text-slate-800">{product.estimated_cogs === 0 ? 'FREE' : '$' + product.estimated_cogs}</p>
         </div>
         <div className="bg-emerald-50 rounded-lg p-2">
           <p className="text-xs text-emerald-600">Sell</p>
