@@ -158,6 +158,18 @@ export default function ShopifyOAuth() {
 
       <div className="max-w-4xl mx-auto p-6 space-y-6">
 
+        {/* Redirect URI setup notice */}
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
+          <p className="text-sm font-semibold text-amber-800 mb-1">⚠️ If you see "redirect_uri not whitelisted" — add this URL to your Shopify app:</p>
+          <div className="flex items-center gap-2 mt-2">
+            <code className="flex-1 bg-white border border-amber-200 rounded-lg px-3 py-2 text-xs text-slate-700 break-all">{stableUrl}</code>
+            <Button size="sm" variant="outline" onClick={copyUrl} className="shrink-0">
+              {copied ? "Copied!" : <><Copy className="w-3.5 h-3.5" /> Copy</>}
+            </Button>
+          </div>
+          <p className="text-xs text-amber-600 mt-2">Go to <strong>Shopify Partner Dashboard → Your App → App setup → Allowed redirection URL(s)</strong> and add the URL above.</p>
+        </div>
+
         {/* Hero card */}
         <div className="rounded-2xl overflow-hidden shadow-sm border border-green-200" style={{ background: "linear-gradient(135deg, #008060 0%, #004c3f 100%)" }}>
           <div className="p-8 flex flex-col md:flex-row items-start md:items-center gap-6">
