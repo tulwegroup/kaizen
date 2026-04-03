@@ -12,6 +12,9 @@ async function shopifyRequest(domain, token, method, path, body) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json();
+  if (res.status === 403) {
+    throw new Error('MISSING_SCOPE: write_themes');
+  }
   if (!res.ok) throw new Error(`Shopify [${res.status}] ${JSON.stringify(data).slice(0, 300)}`);
   return data;
 }
@@ -664,9 +667,17 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const activate = !!body.activate;
 
-  const themeRes = await shopifyRequest(shopDomain, token, 'POST', 'themes.json', {
-    theme: { name: 'Kaizen Market 2.0', role: 'unpublished' }
-  });
+  let themeRes;
+  try {
+    themeRes = await shopifyRequest(shopDomain, token, 'POST', 'themes.json', {
+      theme: { name: 'Kaizen Market 2.0', role: 'unpublished' }
+    });
+  } catch (e) {
+    if (e.message.startsWith('MISSING_SCOPE')) {
+      return Response.json({ error: 'Missing Shopify permission: write_themes scope required. Please re-authorize the app.' }, { status: 200 });
+    }
+    return Response.json({ error: e.message }, { status: 200 });
+  }
   const themeId = themeRes.theme.id;
   await new Promise(r => setTimeout(r, 3000));
 

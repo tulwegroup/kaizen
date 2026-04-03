@@ -30,11 +30,16 @@ export default function ShopifyThemeBuilder() {
     setDeploying(true);
     setResult(null);
     setError(null);
-    const res = await base44.functions.invoke("deployShopifyTheme", { activate });
-    if (res.data?.success) {
-      setResult(res.data);
-    } else {
-      setError(res.data?.error || "Deployment failed");
+    try {
+      const res = await base44.functions.invoke("deployShopifyTheme", { activate });
+      if (res.data?.success) {
+        setResult(res.data);
+      } else {
+        setError(res.data?.error || "Deployment failed");
+      }
+    } catch (e) {
+      const msg = e?.response?.data?.error || e?.message || "Deployment failed";
+      setError(msg);
     }
     setDeploying(false);
   };
