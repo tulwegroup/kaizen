@@ -40,48 +40,29 @@ export default function AgentResearch() {
     setImportProgress({ current: 0, total: 0 });
   };
 
-  const run = async (attempt = 1) => {
+  const run = async () => {
     if (regions.length === 0) return;
     setLoading(true);
     setResult(null);
     setError(null);
     setResearchProgress(0);
 
-    // Crawl progress slowly — never hard-stop, keeps creeping to 98
     let fakeProgress = 0;
     const interval = setInterval(() => {
-      fakeProgress += fakeProgress < 70 ? Math.random() * 2.5 : Math.random() * 0.4;
+      fakeProgress += fakeProgress < 80 ? Math.random() * 3 : Math.random() * 0.5;
       if (fakeProgress >= 98) fakeProgress = 98;
       setResearchProgress(Math.round(fakeProgress));
-    }, 1000);
+    }, 800);
 
-    // 3-minute timeout to handle slow mobile connections
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 180000);
+    const res = await base44.functions.invoke('agentResearch', { regions, niches, period });
+    clearInterval(interval);
+    setResearchProgress(100);
+    setTimeout(() => setResearchProgress(0), 800);
 
-    try {
-      const res = await base44.functions.invoke('agentResearch', { regions, niches, period });
-      clearTimeout(timeoutId);
-      clearInterval(interval);
-      setResearchProgress(100);
-      setTimeout(() => setResearchProgress(0), 1000);
-
-      if (res.data?.status === 'success') {
-        setResult(res.data);
-      } else {
-        setError(res.data?.error || 'Research failed');
-      }
-    } catch (err) {
-      clearTimeout(timeoutId);
-      clearInterval(interval);
-      setResearchProgress(0);
-      if (attempt < 2) {
-        // Auto-retry once on failure
-        setError('Connection timed out — retrying automatically…');
-        setTimeout(() => run(2), 2000);
-        return;
-      }
-      setError('Request timed out after 3 minutes. Please try again — the AI research can take longer on slower connections.');
+    if (res.data?.status === 'success') {
+      setResult(res.data);
+    } else {
+      setError(res.data?.error || 'Research failed');
     }
     setLoading(false);
   };
