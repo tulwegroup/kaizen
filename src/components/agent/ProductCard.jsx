@@ -96,6 +96,22 @@ export default function ProductCard({ product, rank }) {
 
       <p className="text-xs text-slate-600 italic mb-2">{product.why_it_works}</p>
 
+      {/* Price Intelligence */}
+      {(product.prevailing_price_low || product.price_strategy) && (
+        <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 mb-3">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${product.price_type === 'competitive' ? 'bg-blue-600 text-white' : 'bg-slate-400 text-white'}`}>
+              {product.price_type === 'competitive' ? '📊 SURVEYED' : '📐 PROJECTED'}
+            </span>
+            {product.prevailing_price_low && (
+              <span className="text-xs text-slate-500">Market: ${product.prevailing_price_low}–${product.prevailing_price_high}</span>
+            )}
+          </div>
+          {product.price_strategy && <p className="text-xs text-blue-700 font-medium">{product.price_strategy}</p>}
+          {product.price_source && <p className="text-xs text-slate-400 mt-0.5">Source: {product.price_source}</p>}
+        </div>
+      )}
+
       {product.cj_search_keywords?.length > 0 && (
         <div>
           <p className="text-xs text-slate-400 mb-1">CJ Search Keywords:</p>
@@ -112,7 +128,7 @@ export default function ProductCard({ product, rank }) {
         {imported ? (
           <a href={imported.shopify_admin_url} target="_blank" rel="noreferrer"
             className="flex items-center gap-1.5 text-xs text-emerald-700 font-semibold">
-            <Check className="w-3.5 h-3.5" /> Imported to Shopify ↗
+            <Check className="w-3.5 h-3.5" /> {imported.already_exists ? 'Already in Shopify ↗' : 'Imported to Shopify ↗'}
           </a>
         ) : (
           <button

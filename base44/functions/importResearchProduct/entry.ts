@@ -52,9 +52,26 @@ Deno.serve(async (req) => {
   const shopDomain = Deno.env.get('SHOPIFY_STORE_DOMAIN');
   if (!shopDomain) return Response.json({ error: 'SHOPIFY_STORE_DOMAIN not set' }, { status: 500 });
 
+  // Duplicate check — search Shopify for existing product with same title
   const sessions = await base44.asServiceRole.entities.ShopifySession.filter({ shop_domain: shopDomain });
   const token = sessions[0]?.access_token;
   if (!token) return Response.json({ error: 'No Shopify session. Complete OAuth first.' }, { status: 401 });
+
+  const searchRes = await shopifyRequest(shopDomain, token, 'GET', `products.json?title=${encodeURIComponent(product.product_name)}&fields=id,title,handle&limit=5`);
+  const existing = (searchRes.products || []).find(
+    p => p.title.toLowerCase().trim() === product.product_name.toLowerCase().trim()
+  );
+  if (existing) {
+    return Response.json({
+      success: true,
+      already_exists: true,
+      shopify_product_id: String(existing.id),
+      shopify_handle: existing.handle,
+      shopify_admin_url: `https://${shopDomain}/admin/products/${existing.id}`,
+      title: existing.title,
+      message: 'Product already exists in Shopify — skipped duplicate.',
+    });
+  }
 
   // Phase 1: Enrich via LLM + internet
   const enriched = await base44.integrations.Core.InvokeLLM({

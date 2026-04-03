@@ -62,8 +62,13 @@ For EACH product return:
 - cj_search_keywords: 3 keywords (for digital: platform to sell on e.g. "Gumroad, Etsy, Shopify digital")
 - target_audience: who buys this
 - top_platforms: best social platforms
-- image_url: real accessible .jpg/.png/.webp URL`,
-      add_context_from_internet: true,
+- image_url: real accessible .jpg/.png/.webp URL
+- prevailing_price_low: lowest current market price found (USD) across Amazon, AliExpress, TikTok Shop, etc.
+- prevailing_price_high: highest current market price found (USD)
+- price_source: where you found these prices (e.g. "Amazon US, TikTok Shop")
+- recommended_sell_price: your suggested price BELOW prevailing_price_low to beat competition (explain in price_strategy)
+- price_strategy: 1 sentence explaining how this price beats the market (e.g. "$3 below Amazon average of $29.99, targeting price-sensitive TikTok buyers")
+- price_type: "competitive" (surveyed real prices) or "projected" (estimated based on COGS/margin norms)`,
       model: 'gemini_3_flash',
       response_json_schema: {
         type: 'object',
@@ -86,10 +91,15 @@ For EACH product return:
                 target_audience: { type: 'string' },
                 top_platforms: { type: 'array', items: { type: 'string' } },
                 image_url: { type: 'string' },
-              }
-            }
-          },
-          market_summary: { type: 'string' }
+                prevailing_price_low: { type: 'number' },
+                prevailing_price_high: { type: 'number' },
+                price_source: { type: 'string' },
+                price_strategy: { type: 'string' },
+                price_type: { type: 'string' },
+                }
+                }
+                },
+                market_summary: { type: 'string' }
         }
       }
     }),
