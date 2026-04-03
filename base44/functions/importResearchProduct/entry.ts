@@ -96,9 +96,14 @@ Context:
     }
   });
 
-  // Phase 2: Get the primary Shopify location (needed for inventory)
-  const locationsData = await shopifyRequest(shopDomain, token, 'GET', 'locations.json');
-  const locationId = locationsData.locations?.[0]?.id;
+  // Phase 2: Get the primary Shopify location (needed for inventory) — skip if scope missing
+  let locationId = null;
+  try {
+    const locationsData = await shopifyRequest(shopDomain, token, 'GET', 'locations.json');
+    locationId = locationsData.locations?.[0]?.id;
+  } catch {
+    // read_locations scope not granted — inventory will be skipped
+  }
 
   // Phase 3: Create Shopify product
   const allTags = [...(enriched.tags || []), product.niche, product.search_trend, 'research-agent', product.region].filter(Boolean);
