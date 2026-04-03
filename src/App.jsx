@@ -13,6 +13,7 @@ import InfluencerCRM from './pages/InfluencerCRM';
 import AgentResearch from './pages/AgentResearch';
 import InfluencerEngine from './pages/InfluencerEngine';
 import ShopifyOAuth from './pages/ShopifyOAuth';
+import { ShoppingBag } from 'lucide-react';
 import PipelineTest from './pages/PipelineTest';
 
 const AuthenticatedApp = () => {
