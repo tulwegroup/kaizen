@@ -16,6 +16,8 @@ export default function ShopifyOAuth() {
   const [storefrontPublishing, setStorefrontPublishing] = useState(false);
   const [storefrontResult, setStorefrontResult] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [creatingPages, setCreatingPages] = useState(false);
+  const [pagesResult, setPagesResult] = useState(null);
 
   const stableUrl = "https://massive-nexus-commerce-flow.base44.app/shopify-oauth";
   const shopDomain = "0znmx9-vj.myshopify.com";
@@ -77,6 +79,14 @@ export default function ShopifyOAuth() {
     const res = await base44.functions.invoke("publishAllDrafts", {});
     setPublishResult(res.data);
     setPublishing(false);
+  };
+
+  const createStorePages = async () => {
+    setCreatingPages(true);
+    setPagesResult(null);
+    const res = await base44.functions.invoke('createShopifyPages', {});
+    setPagesResult(res.data);
+    setCreatingPages(false);
   };
 
   const publishToStorefront = async () => {
@@ -292,6 +302,35 @@ export default function ShopifyOAuth() {
               {storefrontPublishing
                 ? <><RefreshCw className="w-4 h-4 animate-spin" />Publishing to storefront…</>
                 : <><Zap className="w-4 h-4" />Publish All to Storefront</>}
+            </Button>
+          </div>
+
+          {/* Create Store Pages */}
+          <div className="bg-white rounded-2xl border border-violet-200 shadow-sm p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center">
+                <Globe className="w-5 h-5 text-violet-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-slate-900">Create Store Pages</h3>
+                <p className="text-xs text-slate-500">Contact, FAQ, Shipping, Returns & more</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-600 mb-4">Creates all standard store pages (Contact, Shipping Info, Returns, FAQ, Buyer Protection, Flash Deals, New Arrivals) and collections (New Arrivals, Flash Deals, Best Sellers).</p>
+            {pagesResult && (
+              <div className={`rounded-xl px-4 py-3 mb-4 text-sm ${pagesResult.success ? 'bg-violet-50 text-violet-800 border border-violet-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                {pagesResult.success
+                  ? `✅ ${pagesResult.summary?.pages_created} pages · ${pagesResult.summary?.collections_created} collections created`
+                  : pagesResult.error || 'Something went wrong'}
+              </div>
+            )}
+            <Button
+              onClick={createStorePages}
+              disabled={creatingPages}
+              className="w-full gap-2"
+              style={{ background: creatingPages ? undefined : '#7c3aed' }}
+            >
+              {creatingPages ? <><RefreshCw className="w-4 h-4 animate-spin" />Creating pages…</> : <><Zap className="w-4 h-4" />Create All Store Pages</>}
             </Button>
           </div>
 
