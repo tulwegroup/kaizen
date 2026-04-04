@@ -29,6 +29,8 @@ const SCOPES = [
   'read_inventory', 'write_inventory',
   'read_customers',
   'read_themes', 'write_themes',
+  'write_content',
+  'write_publications',
 ].join(',');
 
 // ── Crypto helpers ────────────────────────────────────────────────────────

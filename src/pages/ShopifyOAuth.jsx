@@ -318,10 +318,10 @@ export default function ShopifyOAuth() {
             </div>
             <p className="text-sm text-slate-600 mb-4">Creates all standard store pages (Contact, Shipping Info, Returns, FAQ, Buyer Protection, Flash Deals, New Arrivals) and collections (New Arrivals, Flash Deals, Best Sellers).</p>
             {pagesResult && (
-              <div className={`rounded-xl px-4 py-3 mb-4 text-sm ${pagesResult.success ? 'bg-violet-50 text-violet-800 border border-violet-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
-                {pagesResult.success
-                  ? `✅ ${pagesResult.summary?.pages_created} pages · ${pagesResult.summary?.collections_created} collections created`
-                  : pagesResult.error || 'Something went wrong'}
+              <div className={`rounded-xl px-4 py-3 mb-4 text-sm ${pagesResult.success && pagesResult.summary?.pages_created > 0 ? 'bg-violet-50 text-violet-800 border border-violet-200' : 'bg-amber-50 text-amber-800 border border-amber-200'}`}>
+                {pagesResult.success && pagesResult.summary?.pages_created > 0
+                  ? `✅ ${pagesResult.summary.pages_created} pages · ${pagesResult.summary.collections_created} collections created`
+                  : '⚠️ Missing write_content scope — click Re-authorize below to get a new token, then try again.'}
               </div>
             )}
             <Button
