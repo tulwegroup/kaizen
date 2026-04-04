@@ -133,25 +133,13 @@ Also return:
             }
           }
         }),
-        base44.integrations.Core.InvokeLLM({
-          prompt: `Find the public business/contact email address for the ${platformName} creator @${acct.handle}.
-Search their ${platformName} bio, Linktree, website, or any public source.
-Return ONLY the email if found, or null if not found. Do not guess or make up emails.`,
-          add_context_from_internet: true,
-          model: 'gemini_3_flash',
-          response_json_schema: {
-            type: "object",
-            properties: {
-              email: { type: "string" },
-              source: { type: "string" },
-            }
-          }
-        })
+        base44.functions.invoke("findInfluencerEmail", { handle: acct.handle, platform: acct.platform })
       ]);
 
-      const discoveredEmail = emailRes?.email && emailRes.email.includes("@") ? emailRes.email : null;
+      const emailData = emailRes?.data || {};
+      const discoveredEmail = emailData?.email && emailData.email.includes("@") ? emailData.email : null;
 
-      setResults(prev => prev.map((r, idx) => idx === i ? { ...r, emailSearching: false, discoveredEmail, emailSource: emailRes?.source } : r));
+      setResults(prev => prev.map((r, idx) => idx === i ? { ...r, emailSearching: false, discoveredEmail, emailSource: emailData?.source, emailMethod: emailData?.method } : r));
 
       // Step 2: auto-send if email found
       let sent = false;
@@ -380,7 +368,7 @@ Return ONLY the email if found, or null if not found. Do not guess or make up em
                 )}
                 {r.discoveredEmail && !r.sending && !r.sent && (
                   <div className="px-4 pb-2 text-xs text-blue-600 flex items-center gap-1">
-                    📧 Found: {r.discoveredEmail}{r.emailSource ? ` (${r.emailSource})` : ''}
+                    📧 Found: {r.discoveredEmail}{r.emailSource ? ` via ${r.emailSource}` : ''}{r.emailMethod ? ` [${r.emailMethod}]` : ''}
                   </div>
                 )}
                 {!r.emailSearching && r.status === 'done' && !r.discoveredEmail && (
