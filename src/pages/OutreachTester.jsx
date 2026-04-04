@@ -67,7 +67,7 @@ export default function OutreachTester() {
       const platform = detectPlatform(raw);
       const stripped = raw.replace(/^(tt:|ig:)/i, "");
       const handle = cleanHandle(stripped);
-      return { raw, handle, platform, email: "" };
+      return { raw, handle, platform };
     });
     setAccounts(prev => {
       const existing = new Set(prev.map(a => a.handle.toLowerCase()));
@@ -77,7 +77,6 @@ export default function OutreachTester() {
   };
 
   const removeAccount = (handle) => setAccounts(prev => prev.filter(a => a.handle !== handle));
-  const setEmail = (handle, email) => setAccounts(prev => prev.map(a => a.handle === handle ? { ...a, email } : a));
 
   const togglePlatform = (handle) => setAccounts(prev =>
     prev.map(a => a.handle === handle
@@ -89,16 +88,21 @@ export default function OutreachTester() {
   const runAgent = async () => {
     if (!accounts.length || !activeProduct.name) return;
     setRunning(true);
-    setResults(accounts.map(a => ({ ...a, status: "pending", pitch: null, error: null, expanded: false, copied: false, sent: false, sending: false })));
+    setResults(accounts.map(a => ({ ...a, status: "pending", pitch: null, error: null, expanded: false, copied: false, sent: false, sending: false, discoveredEmail: null, emailSearching: false })));
 
     for (let i = 0; i < accounts.length; i++) {
       const acct = accounts[i];
-      setResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: "generating" } : r));
 
-      const res = await base44.integrations.Core.InvokeLLM({
-        prompt: `You are a brand partnership manager writing a short, human, personalised influencer DM.
+      // Step 1: search for email + generate pitch in parallel
+      setResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: "generating", emailSearching: true } : r));
 
-Platform: ${acct.platform === "tiktok" ? "TikTok" : "Instagram"}
+      const platformName = acct.platform === "tiktok" ? "TikTok" : "Instagram";
+
+      const [pitchRes, emailRes] = await Promise.all([
+        base44.integrations.Core.InvokeLLM({
+          prompt: `You are a brand partnership manager writing a short, human, personalised influencer DM.
+
+Platform: ${platformName}
 Influencer handle: @${acct.handle}
 Product to promote: ${activeProduct.name}
 Sell price: $${activeProduct.price}
@@ -118,29 +122,48 @@ Also return:
 - subject_line: email subject 30 chars max
 - fit_score: 1-10
 - fit_reason: 1 sentence`,
-        response_json_schema: {
-          type: "object",
-          properties: {
-            dm_text: { type: "string" },
-            dm_preview: { type: "string" },
-            subject_line: { type: "string" },
-            fit_score: { type: "number" },
-            fit_reason: { type: "string" },
+          response_json_schema: {
+            type: "object",
+            properties: {
+              dm_text: { type: "string" },
+              dm_preview: { type: "string" },
+              subject_line: { type: "string" },
+              fit_score: { type: "number" },
+              fit_reason: { type: "string" },
+            }
           }
-        }
-      });
+        }),
+        base44.integrations.Core.InvokeLLM({
+          prompt: `Find the public business/contact email address for the ${platformName} creator @${acct.handle}.
+Search their ${platformName} bio, Linktree, website, or any public source.
+Return ONLY the email if found, or null if not found. Do not guess or make up emails.`,
+          add_context_from_internet: true,
+          model: 'gemini_3_flash',
+          response_json_schema: {
+            type: "object",
+            properties: {
+              email: { type: "string" },
+              source: { type: "string" },
+            }
+          }
+        })
+      ]);
 
-      // Auto-send email if address provided
+      const discoveredEmail = emailRes?.email && emailRes.email.includes("@") ? emailRes.email : null;
+
+      setResults(prev => prev.map((r, idx) => idx === i ? { ...r, emailSearching: false, discoveredEmail, emailSource: emailRes?.source } : r));
+
+      // Step 2: auto-send if email found
       let sent = false;
       let sendError = null;
-      if (acct.email && acct.email.includes("@")) {
-        setResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: "done", pitch: res, expanded: true, sending: true } : r));
+      if (discoveredEmail) {
+        setResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: "done", pitch: pitchRes, expanded: true, sending: true } : r));
         const sendRes = await base44.functions.invoke("sendInfluencerPitch", {
-          to_email: acct.email,
+          to_email: discoveredEmail,
           handle: acct.handle,
           platform: acct.platform,
-          subject: res.subject_line,
-          dm_text: res.dm_text,
+          subject: pitchRes.subject_line,
+          dm_text: pitchRes.dm_text,
           product_name: activeProduct.name,
         });
         sent = sendRes.data?.success || false;
@@ -148,7 +171,7 @@ Also return:
       }
 
       setResults(prev => prev.map((r, idx) =>
-        idx === i ? { ...r, status: "done", pitch: res, expanded: true, sending: false, sent, sendError } : r
+        idx === i ? { ...r, status: "done", pitch: pitchRes, expanded: true, sending: false, sent, sendError } : r
       ));
     }
 
@@ -232,25 +255,7 @@ Also return:
                         </button>
                       </div>
                     ))}
-                    {/* Email fields */}
-                    {accounts.length > 0 && (
-                      <div className="pt-2 space-y-2">
-                        <p className="text-xs text-slate-400 font-medium">Email addresses for auto-delivery (optional)</p>
-                        {accounts.map(acct => (
-                          <div key={acct.handle + "-email"} className="flex items-center gap-2">
-                            <span className="text-xs text-slate-400 font-mono w-28 truncate shrink-0">@{acct.handle}</span>
-                            <input
-                              type="email"
-                              placeholder="contact@email.com"
-                              value={acct.email || ""}
-                              onChange={e => setEmail(acct.handle, e.target.value)}
-                              className="flex-1 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-violet-300"
-                            />
-                          </div>
-                        ))}
-                        <p className="text-xs text-slate-400">💡 Pitch will be auto-sent immediately after it's generated.</p>
-                      </div>
-                    )}
+                    <p className="text-xs text-slate-400 mt-1">💡 Email addresses will be auto-discovered from public bios & Linktrees.</p>
                   </div>
                 )}
               </CardContent>
@@ -368,6 +373,19 @@ Also return:
                   )}
                 </div>
                 {/* Send status */}
+                {r.emailSearching && (
+                  <div className="px-4 pb-2 text-xs text-violet-600 flex items-center gap-1">
+                    <RefreshCw className="w-3 h-3 animate-spin" /> Searching for public email…
+                  </div>
+                )}
+                {r.discoveredEmail && !r.sending && !r.sent && (
+                  <div className="px-4 pb-2 text-xs text-blue-600 flex items-center gap-1">
+                    📧 Found: {r.discoveredEmail}{r.emailSource ? ` (${r.emailSource})` : ''}
+                  </div>
+                )}
+                {!r.emailSearching && r.status === 'done' && !r.discoveredEmail && (
+                  <div className="px-4 pb-2 text-xs text-amber-600">⚠️ No public email found — use Copy & Open to DM manually</div>
+                )}
                 {r.sending && (
                   <div className="px-4 pb-2 text-xs text-amber-600 flex items-center gap-1">
                     <RefreshCw className="w-3 h-3 animate-spin" /> Sending email…
@@ -375,7 +393,7 @@ Also return:
                 )}
                 {r.sent && (
                   <div className="px-4 pb-2 text-xs text-emerald-600 flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3" /> Email delivered to {r.email}
+                    <CheckCircle className="w-3 h-3" /> Email sent to {r.discoveredEmail}
                   </div>
                 )}
                 {r.sendError && (
