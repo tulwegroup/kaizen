@@ -20,6 +20,8 @@ export default function ShopifyOAuth() {
   const [pagesResult, setPagesResult] = useState(null);
   const [fixingCollections, setFixingCollections] = useState(false);
   const [fixResult, setFixResult] = useState(null);
+  const [populating, setPopulating] = useState(false);
+  const [populateResult, setPopulateResult] = useState(null);
 
   const stableUrl = "https://massive-nexus-commerce-flow.base44.app/shopify-oauth";
   const shopDomain = "0znmx9-vj.myshopify.com";
@@ -97,6 +99,14 @@ export default function ShopifyOAuth() {
     const res = await base44.functions.invoke('fixShopifyCollections', {});
     setFixResult(res.data);
     setFixingCollections(false);
+  };
+
+  const populateCollections = async () => {
+    setPopulating(true);
+    setPopulateResult(null);
+    const res = await base44.functions.invoke('populateCollections', {});
+    setPopulateResult(res.data);
+    setPopulating(false);
   };
 
   const publishToStorefront = async () => {
@@ -252,6 +262,28 @@ export default function ShopifyOAuth() {
 
         {/* Action cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+          {/* Populate Collections */}
+          <div className="bg-white rounded-2xl border border-orange-200 shadow-sm p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center">
+                <Package className="w-5 h-5 text-orange-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-slate-900">Populate Collections</h3>
+                <p className="text-xs text-slate-500">Add all products to Flash Deals, Best Sellers & New Arrivals</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-600 mb-4">Recreates collections and bulk-adds all 71 active products so they appear in the theme's Flash Deals and Best Sellers sections.</p>
+            {populateResult && (
+              <div className={`rounded-xl px-4 py-3 mb-4 text-sm ${populateResult.success ? 'bg-orange-50 text-orange-800 border border-orange-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
+                {populateResult.success ? `✅ ${populateResult.products_total} products added to ${populateResult.collections_created} collections` : JSON.stringify(populateResult)}
+              </div>
+            )}
+            <Button onClick={populateCollections} disabled={populating} className="w-full gap-2 bg-orange-500 hover:bg-orange-600 text-white">
+              {populating ? <><RefreshCw className="w-4 h-4 animate-spin" />Populating…</> : <><Package className="w-4 h-4" />Populate All Collections</>}
+            </Button>
+          </div>
 
           {/* Fix Collections & Products */}
           <div className="bg-white rounded-2xl border border-red-200 shadow-sm p-6">
