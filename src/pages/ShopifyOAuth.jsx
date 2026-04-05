@@ -316,12 +316,26 @@ export default function ShopifyOAuth() {
                 <p className="text-xs text-slate-500">Contact, FAQ, Shipping, Returns & more</p>
               </div>
             </div>
-            <p className="text-sm text-slate-600 mb-4">Creates all standard store pages (Contact, Shipping Info, Returns, FAQ, Buyer Protection, Flash Deals, New Arrivals) and collections (New Arrivals, Flash Deals, Best Sellers).</p>
+
+            {/* Scope warning */}
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4 text-xs text-amber-800 space-y-1">
+              <p className="font-bold">⚠️ Action required before this will work:</p>
+              <p>Your token is missing the <code className="bg-amber-100 px-1 rounded">write_content</code> scope. Since this is a Custom App token, you must add it manually:</p>
+              <ol className="list-decimal ml-4 space-y-0.5 mt-1">
+                <li>Go to <a href={`https://${shopDomain}/admin/settings/apps/development`} target="_blank" rel="noreferrer" className="underline font-semibold">Shopify Admin → Settings → Apps → Develop apps</a></li>
+                <li>Open your app → <strong>Configuration</strong> tab</li>
+                <li>Under <strong>Admin API access scopes</strong> add: <code className="bg-amber-100 px-1 rounded">write_content</code></li>
+                <li>Save, then go to <strong>API credentials</strong> tab and click <strong>Reinstall app</strong> to get a new token</li>
+                <li>Paste the new token into the ShopifySession in the database, then come back here</li>
+              </ol>
+            </div>
+
+            <p className="text-sm text-slate-600 mb-4">Creates all standard store pages (Contact, Shipping Info, Returns, FAQ, Buyer Protection, Flash Deals, New Arrivals) and collections.</p>
             {pagesResult && (
-              <div className={`rounded-xl px-4 py-3 mb-4 text-sm ${pagesResult.success && pagesResult.summary?.pages_created > 0 ? 'bg-violet-50 text-violet-800 border border-violet-200' : 'bg-amber-50 text-amber-800 border border-amber-200'}`}>
+              <div className={`rounded-xl px-4 py-3 mb-4 text-sm ${pagesResult.success && pagesResult.summary?.pages_created > 0 ? 'bg-violet-50 text-violet-800 border border-violet-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
                 {pagesResult.success && pagesResult.summary?.pages_created > 0
                   ? `✅ ${pagesResult.summary.pages_created} pages · ${pagesResult.summary.collections_created} collections created`
-                  : '⚠️ Missing write_content scope — click Re-authorize below to get a new token, then try again.'}
+                  : '❌ Still missing write_content scope — follow the steps above first.'}
               </div>
             )}
             <Button
