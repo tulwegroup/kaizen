@@ -18,6 +18,8 @@ export default function ShopifyOAuth() {
   const [copied, setCopied] = useState(false);
   const [creatingPages, setCreatingPages] = useState(false);
   const [pagesResult, setPagesResult] = useState(null);
+  const [fixingCollections, setFixingCollections] = useState(false);
+  const [fixResult, setFixResult] = useState(null);
 
   const stableUrl = "https://massive-nexus-commerce-flow.base44.app/shopify-oauth";
   const shopDomain = "0znmx9-vj.myshopify.com";
@@ -87,6 +89,14 @@ export default function ShopifyOAuth() {
     const res = await base44.functions.invoke('createShopifyPages', {});
     setPagesResult(res.data);
     setCreatingPages(false);
+  };
+
+  const fixCollections = async () => {
+    setFixingCollections(true);
+    setFixResult(null);
+    const res = await base44.functions.invoke('fixShopifyCollections', {});
+    setFixResult(res.data);
+    setFixingCollections(false);
   };
 
   const publishToStorefront = async () => {
@@ -243,36 +253,29 @@ export default function ShopifyOAuth() {
         {/* Action cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-          {/* Publish All Drafts */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+          {/* Fix Collections & Products */}
+          <div className="bg-white rounded-2xl border border-red-200 shadow-sm p-6">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
-                <Package className="w-5 h-5 text-amber-600" />
+              <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
+                <Zap className="w-5 h-5 text-red-600" />
               </div>
               <div>
-                <h3 className="font-semibold text-slate-900">Publish All Drafts</h3>
-                <p className="text-xs text-slate-500">Push existing draft products live</p>
+                <h3 className="font-semibold text-slate-900">Fix Collections & Show Products</h3>
+                <p className="text-xs text-slate-500">Run this if products show 0 results on storefront</p>
               </div>
             </div>
-            <p className="text-sm text-slate-600 mb-4">Any products previously imported as drafts will be set to <strong>active</strong> and published to your storefront.</p>
-            {publishResult && (
-              <div className={`rounded-xl px-4 py-3 mb-4 text-sm ${publishResult.published > 0 ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-slate-50 text-slate-600 border border-slate-200'}`}>
-                {publishResult.published > 0
-                  ? `✅ ${publishResult.published} product${publishResult.published !== 1 ? 's' : ''} published${publishResult.failed ? ` · ${publishResult.failed} failed` : ''}`
-                  : publishResult.message || 'No drafts found'}
+            <p className="text-sm text-slate-600 mb-4">Removes empty blocking collections and recreates them as smart collections that auto-populate with all active products.</p>
+            {fixResult && (
+              <div className={`rounded-xl px-4 py-3 mb-4 text-sm ${fixResult.success ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
+                {fixResult.success ? `✅ Fixed! ${fixResult.total_products} products now visible in collections.` : JSON.stringify(fixResult)}
               </div>
             )}
-            <Button
-              onClick={publishAllDrafts}
-              disabled={publishing}
-              className="w-full gap-2"
-              style={{ background: publishing ? undefined : "#008060" }}
-            >
-              {publishing ? <><RefreshCw className="w-4 h-4 animate-spin" />Publishing…</> : <><Zap className="w-4 h-4" />Publish All Drafts</>}
+            <Button onClick={fixCollections} disabled={fixingCollections} className="w-full gap-2 bg-red-600 hover:bg-red-700 text-white">
+              {fixingCollections ? <><RefreshCw className="w-4 h-4 animate-spin" />Fixing…</> : <><Zap className="w-4 h-4" />Fix Collections Now</>}
             </Button>
           </div>
 
-          {/* Publish to Storefront */}
+          {/* Publish All Drafts */}
           <div className="bg-white rounded-2xl border border-green-200 shadow-sm p-6">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
