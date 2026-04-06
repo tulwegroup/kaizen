@@ -23,10 +23,13 @@ export default function ProductsAnalytics({ products }) {
   }, {});
   const topNiches = Object.entries(byNiche).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
-  const avgMargin = Math.round(products.reduce((s, p) => s + (p.gross_margin_pct || 0), 0) / products.length);
-  const avgPrice = (products.reduce((s, p) => s + (p.recommended_sell_price || 0), 0) / products.length).toFixed(2);
+  const withMargin = products.filter(p => p.gross_margin_pct != null);
+  const avgMargin = withMargin.length ? Math.round(withMargin.reduce((s, p) => s + p.gross_margin_pct, 0) / withMargin.length) : null;
+  const avgPrice = (products.filter(p => p.recommended_sell_price).reduce((s, p) => s + p.recommended_sell_price, 0) / (products.filter(p => p.recommended_sell_price).length || 1)).toFixed(2);
   const digitalCount = products.filter(p => p.product_type === 'digital' || p.estimated_cogs === 0).length;
   const risingCount = products.filter(p => p.search_trend === 'rising').length;
+  const shopifyCount = products.filter(p => p._source === 'shopify').length;
+  const activeCount = products.filter(p => p._source === 'shopify' && p.status === 'active').length;
 
   return (
     <div className="space-y-4">
@@ -44,7 +47,7 @@ export default function ProductsAnalytics({ products }) {
             <DollarSign className="w-4 h-4 text-emerald-500" />
             <span className="text-xs text-slate-500 font-medium uppercase tracking-wide">Avg Margin</span>
           </div>
-          <p className="text-3xl font-bold text-emerald-700">{avgMargin}%</p>
+          <p className="text-3xl font-bold text-emerald-700">{avgMargin != null ? avgMargin + '%' : '—'}</p>
         </div>
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <div className="flex items-center gap-2 mb-1">
