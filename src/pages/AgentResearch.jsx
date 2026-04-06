@@ -94,7 +94,7 @@ export default function AgentResearch() {
                 <span className="flex items-center gap-2 flex-col w-full">
                   <span className="flex items-center gap-2">
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    {s.researchProgress >= 90 ? `Almost done… AI is finalising (${s.researchProgress}%)` : `Researching trending products… ${s.researchProgress}%`}
+                    {s.researchProgress >= 90 ? `Almost done… AI is finalising (${Math.round(s.researchProgress)}%)` : `Researching trending products… ${Math.round(s.researchProgress)}%`}
                   </span>
                   <div className="w-full bg-violet-300 rounded-full h-1.5">
                     <div className="bg-white rounded-full h-1.5 transition-all duration-1000" style={{ width: `${s.researchProgress}%` }} />

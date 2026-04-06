@@ -139,7 +139,6 @@ Return ALL these fields per product:
 - prevailing_price_low, prevailing_price_high, price_source, price_strategy, price_type
 - market_summary`,
       model: 'gemini_3_flash',
-      add_context_from_internet: true,
       response_json_schema: {
         type: 'object',
         properties: {
