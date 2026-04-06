@@ -7,6 +7,20 @@ import {
   X, Menu
 } from "lucide-react";
 
+const NAV_ITEMS = [
+  { to: '/',                   label: 'Dashboard',          icon: LayoutDashboard, color: 'text-slate-600' },
+  { to: '/agent-research',     label: 'AI Research',        icon: Sparkles,        color: 'text-violet-600' },
+  { to: '/products',           label: 'Products',           icon: Package,         color: 'text-violet-600' },
+  { to: '/import-jobs',        label: 'Drafts & Jobs',      icon: FileStack,       color: 'text-amber-600' },
+  { to: '/automated-pipeline', label: 'Auto Pipeline',      icon: Zap,             color: 'text-slate-600' },
+  { to: '/influencer-crm',     label: 'Influencer CRM',     icon: Users,           color: 'text-blue-600' },
+  { to: '/influencer-engine',  label: 'Influencer Engine',  icon: Zap,             color: 'text-amber-600' },
+  { to: '/outreach-center',    label: 'Outreach Center',    icon: Mail,            color: 'text-blue-600' },
+  { to: '/outreach-tester',    label: 'Outreach Tester',    icon: Send,            color: 'text-violet-600' },
+  { to: '/shopify-oauth',      label: 'Shopify Connect',    icon: ShoppingBag,     color: 'text-green-600' },
+  { to: '/shopify-theme',      label: 'Theme Builder',      icon: Palette,         color: 'text-slate-600' },
+];
+
 export default function Layout() {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
