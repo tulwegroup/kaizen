@@ -106,10 +106,16 @@ export async function runResearch(regions, niches, period) {
       throw new Error(res.data?.error || 'Research failed — please try again.');
     }
 
+    // Replace LLM-hallucinated image URLs with reliable Unsplash images
+    const products = (res.data.products || []).map(p => ({
+      ...p,
+      image_url: `https://source.unsplash.com/featured/400x400/?${encodeURIComponent(p.product_name.split(' ').slice(0, 3).join(' '))}`,
+    }));
+
     Object.assign(state, {
       loading: false,
       researchProgress: 100,
-      result: res.data,
+      result: { ...res.data, products },
     });
     notify();
     setTimeout(() => { state.researchProgress = 0; notify(); }, 1000);
