@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,101 +14,6 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import * as store from "@/lib/researchStore";
-
-// ─── All async work runs at module level so navigation can't kill it ────────
-
-async function runResearch(regions, niches, period) {
-  if (store.getState().loading) return;
-  store.setState({
-    loading: true, result: null, error: null,
-    researchProgress: 0, bulkImportResult: null,
-    savedJobId: null, jobSaved: false,
-    selected: new Set(), enrichedMap: {},
-    regions, niches, period,
-  });
-
-  let fakeProgress = 0;
-  const interval = setInterval(() => {
-    fakeProgress += fakeProgress < 80 ? Math.random() * 3 : Math.random() * 0.5;
-    if (fakeProgress >= 98) fakeProgress = 98;
-    store.setState({ researchProgress: Math.round(fakeProgress) });
-  }, 800);
-
-  const res = await base44.functions.invoke('agentResearch', { regions, niches, period });
-  clearInterval(interval);
-  store.setState({ researchProgress: 100 });
-  setTimeout(() => store.setState({ researchProgress: 0 }), 800);
-
-  if (res.data?.status === 'success') {
-    store.setState({ result: res.data, loading: false });
-  } else {
-    store.setState({ error: res.data?.error || 'Research failed', loading: false });
-  }
-}
-
-async function runBulkEnrich() {
-  const s = store.getState();
-  const indices = [...s.selected].filter(i => !s.enrichedMap[i]);
-  if (!indices.length || s.bulkEnriching) return;
-  store.setState({ bulkEnriching: true, bulkEnrichProgress: { current: 0, total: indices.length } });
-  for (let idx = 0; idx < indices.length; idx++) {
-    const i = indices[idx];
-    store.setState({ bulkEnrichProgress: { current: idx + 1, total: indices.length } });
-    const res = await base44.functions.invoke('enrichProductWithAI', { product: s.result.products[i] });
-    if (res.data?.success) store.setEnrichedForIndex(i, res.data.enriched);
-  }
-  store.setState({ bulkEnriching: false, bulkEnrichProgress: { current: 0, total: 0 } });
-}
-
-async function runBulkImport() {
-  const s = store.getState();
-  const indices = [...s.selected];
-  if (!indices.length || s.bulkImporting) return;
-  store.setState({ bulkImporting: true, bulkImportResult: null, bulkImportProgress: { current: 0, total: indices.length } });
-  let succeeded = 0, failed = 0;
-  for (let idx = 0; idx < indices.length; idx++) {
-    const i = indices[idx];
-    store.setState({ bulkImportProgress: { current: idx + 1, total: indices.length } });
-    const p = store.getState().result.products[i];
-    const enriched = store.getState().enrichedMap[i];
-    const productToImport = enriched
-      ? { ...p, product_name: enriched.title || p.product_name, description: enriched.body_html, tags: enriched.tags?.join(', '), vendor: enriched.vendor_name, product_type_shopify: enriched.product_type, compare_at_price: enriched.compare_at_price, seo_title: enriched.seo_title, seo_description: enriched.seo_description }
-      : p;
-    const res = await base44.functions.invoke('importResearchProduct', { product: productToImport });
-    res.data?.success ? succeeded++ : failed++;
-  }
-  store.setState({ bulkImporting: false, bulkImportProgress: { current: 0, total: 0 }, bulkImportResult: { succeeded, failed } });
-  if (store.getState().savedJobId) {
-    await base44.entities.ImportJob.update(store.getState().savedJobId, {
-      status: failed === 0 ? 'done' : 'partially_done',
-      imported_count: succeeded,
-    });
-  }
-}
-
-async function saveJob() {
-  const s = store.getState();
-  store.setState({ savingJob: true });
-  const title = `${s.regions.slice(0, 2).join(', ')} — ${s.niches.slice(0, 2).join(', ') || 'All niches'} (${new Date().toLocaleDateString()})`;
-  const jobData = {
-    title, source: 'research_agent', status: 'draft',
-    regions: s.regions, niches: s.niches, period: s.period,
-    products_raw: JSON.stringify(s.result.products),
-    enriched_map: JSON.stringify(s.enrichedMap),
-    selected_indices: JSON.stringify([...s.selected]),
-    total_count: s.result.products.length,
-    imported_count: s.bulkImportResult?.succeeded || 0,
-  };
-  if (s.savedJobId) {
-    await base44.entities.ImportJob.update(s.savedJobId, jobData);
-  } else {
-    const created = await base44.entities.ImportJob.create(jobData);
-    store.setState({ savedJobId: created.id });
-  }
-  store.setState({ savingJob: false, jobSaved: true });
-}
-
-// ─── Component ───────────────────────────────────────────────────────────────
 
 export default function AgentResearch() {
   const [s, setS] = useState(store.getState());
@@ -181,7 +86,7 @@ export default function AgentResearch() {
             <NicheSelector selected={s.niches} onChange={v => store.setState({ niches: v })} />
             <PeriodSelector selected={s.period} onChange={v => store.setState({ period: v })} />
             <Button
-              onClick={() => runResearch(s.regions, s.niches, s.period)}
+              onClick={() => store.runResearch(s.regions, s.niches, s.period)}
               disabled={s.loading || s.regions.length === 0}
               className="w-full bg-violet-600 hover:bg-violet-700 text-white"
             >
@@ -229,7 +134,7 @@ export default function AgentResearch() {
               </div>
               <div className="flex-1" />
 
-              <Button onClick={saveJob} disabled={s.savingJob} variant="outline" size="sm" className="gap-1.5">
+              <Button onClick={store.saveJob} disabled={s.savingJob} variant="outline" size="sm" className="gap-1.5">
                 {s.savingJob ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                 {s.jobSaved ? '✓ Saved' : 'Save Session'}
               </Button>
@@ -237,7 +142,7 @@ export default function AgentResearch() {
               {s.selected.size > 0 && unenrichedSelectedCount > 0 && (
                 <div className="flex items-center gap-2">
                   {s.bulkEnriching && <span className="text-xs text-violet-600">Enriching {s.bulkEnrichProgress.current}/{s.bulkEnrichProgress.total}…</span>}
-                  <Button onClick={runBulkEnrich} disabled={s.bulkEnriching} size="sm" className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white">
+                  <Button onClick={store.runBulkEnrich} disabled={s.bulkEnriching} size="sm" className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white">
                     {s.bulkEnriching ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                     ✨ AI Enrich {unenrichedSelectedCount} Selected
                   </Button>
@@ -255,7 +160,7 @@ export default function AgentResearch() {
                       ✓ {s.bulkImportResult.succeeded} done{s.bulkImportResult.failed > 0 ? `, ${s.bulkImportResult.failed} failed` : ''}
                     </span>
                   )}
-                  <Button onClick={runBulkImport} disabled={s.bulkImporting} size="sm"
+                  <Button onClick={store.runBulkImport} disabled={s.bulkImporting} size="sm"
                     className={`gap-1.5 ${enrichedSelectedCount > 0 ? 'bg-emerald-700 hover:bg-emerald-800' : 'bg-slate-800 hover:bg-slate-700'} text-white`}>
                     {s.bulkImporting ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <ShoppingBag className="w-3.5 h-3.5" />}
                     🚀 Import {s.selected.size} to Shopify
