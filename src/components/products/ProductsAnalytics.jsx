@@ -1,18 +1,21 @@
 import { TrendingUp, DollarSign, Package, Sparkles, ShoppingBag } from "lucide-react";
 
-const SOURCE_COLORS = {
-  aliexpress: "bg-orange-100 text-orange-700",
-  alibaba: "bg-yellow-100 text-yellow-700",
-  temu: "bg-red-100 text-red-700",
-  cj: "bg-blue-100 text-blue-700",
-  digital: "bg-purple-100 text-purple-700",
+const SOURCE_CONFIG = {
+  aliexpress: { label: 'AliExpress 🛒', badge: 'bg-orange-100 text-orange-700', bar: 'bg-orange-400' },
+  alibaba:    { label: 'Alibaba 🏭',    badge: 'bg-yellow-100 text-yellow-700', bar: 'bg-yellow-400' },
+  temu:       { label: 'Temu 🔥',       badge: 'bg-red-100 text-red-700',    bar: 'bg-red-400' },
+  cj:         { label: 'CJ Drop 📦',    badge: 'bg-blue-100 text-blue-700',  bar: 'bg-blue-400' },
+  digital:    { label: 'Digital 💻',    badge: 'bg-purple-100 text-purple-700', bar: 'bg-purple-400' },
+  shopify:    { label: 'Other 🏪',      badge: 'bg-slate-100 text-slate-600', bar: 'bg-slate-400' },
 };
 
 export default function ProductsAnalytics({ products }) {
   if (!products.length) return null;
 
+  // For Shopify-sourced products, only show 'shopify' bucket for those we couldn't detect a real source
   const bySource = products.reduce((acc, p) => {
-    const s = p.best_source || 'cj';
+    let s = p.best_source || 'shopify';
+    // If a Shopify product has a detectable marketplace source, use it; otherwise 'shopify' = Other
     acc[s] = (acc[s] || 0) + 1;
     return acc;
   }, {});
@@ -73,17 +76,20 @@ export default function ProductsAnalytics({ products }) {
             <Package className="w-4 h-4 text-slate-400" /> Products by Source
           </h3>
           <div className="space-y-2">
-            {Object.entries(bySource).sort((a, b) => b[1] - a[1]).map(([src, count]) => (
-              <div key={src} className="flex items-center gap-2">
-                <span className={`text-xs font-bold px-2 py-0.5 rounded-full w-28 text-center ${SOURCE_COLORS[src] || 'bg-slate-100 text-slate-600'}`}>
-                  {src.charAt(0).toUpperCase() + src.slice(1)}
-                </span>
-                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-slate-400 rounded-full" style={{ width: `${(count / products.length) * 100}%` }} />
+            {Object.entries(bySource).sort((a, b) => b[1] - a[1]).map(([src, count]) => {
+              const cfg = SOURCE_CONFIG[src] || { label: src, badge: 'bg-slate-100 text-slate-600', bar: 'bg-slate-400' };
+              return (
+                <div key={src} className="flex items-center gap-2">
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full w-32 text-center truncate ${cfg.badge}`}>
+                    {cfg.label}
+                  </span>
+                  <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${cfg.bar}`} style={{ width: `${(count / products.length) * 100}%` }} />
+                  </div>
+                  <span className="text-xs font-semibold text-slate-600 w-8 text-right">{count}</span>
                 </div>
-                <span className="text-xs font-semibold text-slate-600 w-8 text-right">{count}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2">
             <Sparkles className="w-3.5 h-3.5 text-purple-500" />
