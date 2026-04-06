@@ -1,8 +1,9 @@
 import { Link, useLocation, Outlet } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { subscribe, getState } from "@/lib/researchStore";
 import {
   Sparkles, Users, FlaskConical, ShoppingBag, Zap, Mail, Send,
-  LayoutDashboard, ChevronLeft, ChevronRight, FileStack, Palette
+  LayoutDashboard, ChevronLeft, ChevronRight, FileStack, Palette, RefreshCw
 } from "lucide-react";
 
 const NAV_ITEMS = [
@@ -22,6 +23,11 @@ const NAV_ITEMS = [
 export default function Layout() {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const [researchRunning, setResearchRunning] = useState(getState().loading);
+
+  useEffect(() => {
+    return subscribe(s => setResearchRunning(s.loading));
+  }, []);
 
   return (
     <div className="flex min-h-screen bg-slate-50">
@@ -34,6 +40,15 @@ export default function Layout() {
           </div>
           {!collapsed && <span className="font-bold text-sm text-slate-900 leading-tight">Research<br/>Agent</span>}
         </div>
+
+        {/* Active research banner */}
+        {researchRunning && (
+          <Link to="/agent-research"
+            className="mx-2 mt-2 flex items-center gap-1.5 bg-violet-600 text-white text-xs font-semibold px-2 py-1.5 rounded-lg animate-pulse">
+            <RefreshCw className="w-3 h-3 animate-spin shrink-0" />
+            {!collapsed && 'Research running…'}
+          </Link>
+        )}
 
         {/* Nav */}
         <nav className="flex-1 py-3 space-y-0.5 px-2">
@@ -48,7 +63,7 @@ export default function Layout() {
                 className={`flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm font-medium transition-colors group relative
                   ${active ? 'bg-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}
               >
-                <Icon className={`w-4 h-4 shrink-0 ${active ? item.color : 'text-slate-400 group-hover:' + item.color}`} />
+                <Icon className={`w-4 h-4 shrink-0 ${active ? item.color : 'text-slate-400'}`} />
                 {!collapsed && <span className="truncate">{item.label}</span>}
                 {!collapsed && item.badge && (
                   <span className="ml-auto text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-semibold">{item.badge}</span>
