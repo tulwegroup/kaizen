@@ -49,6 +49,8 @@ export default function ProductCard({ product, rank, externalEnriched, onEnriche
     setEnriched(externalEnriched);
   }
 
+  const displayImage = enriched?.image_url || product.image_url;
+
   const source = SOURCE_CONFIG[product.best_source] || SOURCE_CONFIG.cj;
   const isDigital = product.product_type === 'digital' || product.estimated_cogs === 0;
 
@@ -92,11 +94,15 @@ export default function ProductCard({ product, rank, externalEnriched, onEnriche
   return (
     <div className="bg-white rounded-xl border border-slate-200 hover:shadow-md transition-shadow flex flex-col">
       {/* Image */}
-      {product.image_url && (
-        <div className="w-full h-40 rounded-t-xl overflow-hidden bg-slate-100">
-          <img src={product.image_url} alt={product.product_name} className="w-full h-full object-cover" onError={e => e.target.style.display = 'none'} />
-        </div>
-      )}
+      <div className="w-full h-40 rounded-t-xl overflow-hidden bg-slate-100">
+        {displayImage ? (
+          <img src={displayImage} alt={product.product_name} className="w-full h-full object-cover"
+            onError={e => { e.target.src = `https://source.unsplash.com/400x400/?${encodeURIComponent(product.niche || 'product')}`; }} />
+        ) : (
+          <img src={`https://source.unsplash.com/400x400/?${encodeURIComponent((product.product_name || '').split(' ').slice(0,3).join(' '))}`}
+            alt={product.product_name} className="w-full h-full object-cover" />
+        )}
+      </div>
 
       <div className="p-4 flex flex-col flex-1">
         {/* Header */}

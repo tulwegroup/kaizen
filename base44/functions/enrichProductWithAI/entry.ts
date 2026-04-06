@@ -23,9 +23,11 @@ Deno.serve(async (req) => {
 
   const isDigital = product.product_type === 'digital' || product.estimated_cogs === 0;
 
-  const enriched = await base44.integrations.Core.InvokeLLM({
-    model: 'claude_sonnet_4_6',
-    prompt: `You are an expert Shopify e-commerce copywriter and product manager. Your job is to turn raw product research data into a fully optimized, conversion-ready Shopify product listing.
+  // Run enrichment + image search in parallel
+  const [enriched, imageResult] = await Promise.all([
+    base44.integrations.Core.InvokeLLM({
+      model: 'claude_sonnet_4_6',
+      prompt: `You are an expert Shopify e-commerce copywriter and product manager. Your job is to turn raw product research data into a fully optimized, conversion-ready Shopify product listing.
 
 Product to enrich:
 - Name: ${product.product_name}
@@ -53,29 +55,46 @@ Your task:
 12. Write a VENDOR_NAME suggestion (brand-style, e.g. "GlowCraft", "TechNest", "HomeBliss")
 
 Be conversion-focused. Write for impulse buyers. Keep it human, exciting, and trustworthy.`,
-    response_json_schema: {
-      type: 'object',
-      properties: {
-        title: { type: 'string' },
-        short_description: { type: 'string' },
-        body_html: { type: 'string' },
-        bullet_points: { type: 'array', items: { type: 'string' } },
-        tags: { type: 'array', items: { type: 'string' } },
-        compare_at_price: { type: 'number' },
-        seo_title: { type: 'string' },
-        seo_description: { type: 'string' },
-        product_type: { type: 'string' },
-        vendor_name: { type: 'string' },
-        aliexpress_keywords: { type: 'array', items: { type: 'string' } },
-        alibaba_keywords: { type: 'array', items: { type: 'string' } },
-        temu_keywords: { type: 'array', items: { type: 'string' } },
+      response_json_schema: {
+        type: 'object',
+        properties: {
+          title: { type: 'string' },
+          short_description: { type: 'string' },
+          body_html: { type: 'string' },
+          bullet_points: { type: 'array', items: { type: 'string' } },
+          tags: { type: 'array', items: { type: 'string' } },
+          compare_at_price: { type: 'number' },
+          seo_title: { type: 'string' },
+          seo_description: { type: 'string' },
+          product_type: { type: 'string' },
+          vendor_name: { type: 'string' },
+          aliexpress_keywords: { type: 'array', items: { type: 'string' } },
+          alibaba_keywords: { type: 'array', items: { type: 'string' } },
+          temu_keywords: { type: 'array', items: { type: 'string' } },
+        }
       }
-    }
-  });
+    }),
+
+    base44.integrations.Core.InvokeLLM({
+      model: 'gemini_3_flash',
+      add_context_from_internet: true,
+      prompt: `Find a real product image URL for: "${product.product_name}"
+Search AliExpress, Amazon, or the product manufacturer's site.
+Return ONLY a direct image URL (ending in .jpg, .jpeg, .png, or .webp) that actually exists and shows this specific product. If you cannot find a real image URL, return an empty string.`,
+      response_json_schema: {
+        type: 'object',
+        properties: {
+          image_url: { type: 'string' }
+        }
+      }
+    }),
+  ]);
+
+  const image_url = imageResult?.image_url || null;
 
   return Response.json({
     success: true,
     original_product: product,
-    enriched,
+    enriched: { ...enriched, image_url },
   });
 });
