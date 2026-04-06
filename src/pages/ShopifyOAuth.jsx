@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { base44 } from "@/api/base44Client";
 import { Link } from "react-router-dom";
-import { ShoppingBag, CheckCircle, XCircle, ChevronLeft, ExternalLink, Copy, Zap, Globe, Package, RefreshCw, ArrowRight, Palette } from "lucide-react";
+import { ShoppingBag, CheckCircle, XCircle, ChevronLeft, ExternalLink, Copy, Zap, Globe, Package, RefreshCw, ArrowRight, Palette, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -381,6 +381,40 @@ export default function ShopifyOAuth() {
             >
               {creatingPages ? <><RefreshCw className="w-4 h-4 animate-spin" />Creating pages…</> : <><Zap className="w-4 h-4" />Create All Store Pages</>}
             </Button>
+          </div>
+
+          {/* AliDrop Integration */}
+          <div className="bg-white rounded-2xl border border-blue-200 shadow-sm p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                <ShoppingCart className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-slate-900">AliDrop — AliExpress &amp; Alibaba</h3>
+                <p className="text-xs text-slate-500">Source 100M+ products from AliExpress, Alibaba &amp; Temu</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-600 mb-3">AliDrop is the #1 AliExpress dropshipping app on Shopify. One-click product import, automated order fulfillment, and inventory syncing from AliExpress, Alibaba, and Temu suppliers.</p>
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              {[['AliExpress', '100M+ products'], ['Alibaba', 'Bulk suppliers'], ['Temu', 'Low prices']].map(([name, desc]) => (
+                <div key={name} className="bg-blue-50 rounded-lg p-2 text-center">
+                  <p className="text-xs font-bold text-blue-800">{name}</p>
+                  <p className="text-xs text-blue-600">{desc}</p>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <a href="https://apps.shopify.com/alidrop-aliexpress-dropship-1" target="_blank" rel="noreferrer" className="flex-1">
+                <Button className="w-full gap-2 bg-blue-600 hover:bg-blue-700 text-white">
+                  <ShoppingCart className="w-4 h-4" /> Install on Shopify <ExternalLink className="w-3.5 h-3.5" />
+                </Button>
+              </a>
+              <a href="https://app.alidrop.co/register" target="_blank" rel="noreferrer">
+                <Button variant="outline" className="gap-1.5">
+                  Sign Up <ExternalLink className="w-3 h-3" />
+                </Button>
+              </a>
+            </div>
           </div>
 
           {/* Theme Builder CTA */}
