@@ -8,7 +8,8 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return Response.json({ error: 'Method not allowed' }, { status: 405 });
 
   const base44 = createClientFromRequest(req);
-  const user = await base44.auth.me();
+  let user;
+  try { user = await base44.auth.me(); } catch (_) { user = null; }
   if (!user || user.role !== 'admin') return Response.json({ error: 'Admin only' }, { status: 403 });
 
   const { regions, niches, period = '1month' } = await req.json();
