@@ -1,0 +1,72 @@
+{
+  "name": "ImportJob",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Session title e.g. 'US Beauty Research Apr 2026'"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "research_agent",
+        "manual",
+        "pipeline"
+      ],
+      "description": "Where the job came from"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "enriching",
+        "importing",
+        "partially_done",
+        "done"
+      ],
+      "default": "draft"
+    },
+    "regions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "niches": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "period": {
+      "type": "string"
+    },
+    "products_raw": {
+      "type": "string",
+      "description": "JSON string of raw products from research"
+    },
+    "enriched_map": {
+      "type": "string",
+      "description": "JSON string mapping product index to enriched data"
+    },
+    "selected_indices": {
+      "type": "string",
+      "description": "JSON array of selected product indices"
+    },
+    "imported_count": {
+      "type": "number",
+      "default": 0
+    },
+    "total_count": {
+      "type": "number",
+      "default": 0
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "title",
+    "source"
+  ]
+}

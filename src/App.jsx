@@ -17,6 +17,8 @@ import ShopifyOAuth from './pages/ShopifyOAuth';
 import { ShoppingBag } from 'lucide-react';
 import PipelineTest from './pages/PipelineTest';
 import ShopifyThemeBuilder from './pages/ShopifyThemeBuilder';
+import ImportJobs from './pages/ImportJobs';
+import Layout from './components/Layout';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -44,18 +46,20 @@ const AuthenticatedApp = () => {
   // Render the main app
   return (
     <Routes>
-    {/* Add your page Route elements here */}
-    <Route path="/" element={<Dashboard />} />
-    <Route path="/automated-pipeline" element={<AutomatedPipeline />} />
-    <Route path="/outreach-center" element={<OutreachCenter />} />
-      <Route path="/shopify-oauth" element={<ShopifyOAuth />} />
-      <Route path="/pipeline-test" element={<PipelineTest />} />
-      <Route path="/shopify-theme" element={<ShopifyThemeBuilder />} />
-      <Route path="/influencer-engine" element={<InfluencerEngine />} />
-      <Route path="/influencer-crm" element={<InfluencerCRM />} />
-      <Route path="/agent-research" element={<AgentResearch />} />
-      <Route path="/outreach-tester" element={<OutreachTester />} />
-      <Route path="*" element={<PageNotFound />} />
+      <Route element={<Layout />}>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/automated-pipeline" element={<AutomatedPipeline />} />
+        <Route path="/outreach-center" element={<OutreachCenter />} />
+        <Route path="/shopify-oauth" element={<ShopifyOAuth />} />
+        <Route path="/pipeline-test" element={<PipelineTest />} />
+        <Route path="/shopify-theme" element={<ShopifyThemeBuilder />} />
+        <Route path="/influencer-engine" element={<InfluencerEngine />} />
+        <Route path="/influencer-crm" element={<InfluencerCRM />} />
+        <Route path="/agent-research" element={<AgentResearch />} />
+        <Route path="/outreach-tester" element={<OutreachTester />} />
+        <Route path="/import-jobs" element={<ImportJobs />} />
+        <Route path="*" element={<PageNotFound />} />
+      </Route>
     </Routes>
   );
 };

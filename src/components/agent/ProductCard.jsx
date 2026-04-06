@@ -35,14 +35,19 @@ const SOURCE_CONFIG = {
   digital: { label: 'Digital', color: 'bg-purple-500', emoji: '💻', searchUrl: null },
 };
 
-export default function ProductCard({ product, rank }) {
+export default function ProductCard({ product, rank, externalEnriched, onEnriched }) {
   const TrendIcon = product.search_trend === 'rising' || product.search_trend === 'peak' ? TrendingUp : Minus;
   const [importing, setImporting] = useState(false);
   const [imported, setImported] = useState(null);
   const [importError, setImportError] = useState('');
   const [enriching, setEnriching] = useState(false);
-  const [enriched, setEnriched] = useState(null);
+  const [enriched, setEnriched] = useState(externalEnriched || null);
   const [showEnriched, setShowEnriched] = useState(false);
+
+  // Sync external enriched data (from bulk enrich)
+  if (externalEnriched && !enriched) {
+    setEnriched(externalEnriched);
+  }
 
   const source = SOURCE_CONFIG[product.best_source] || SOURCE_CONFIG.cj;
   const isDigital = product.product_type === 'digital' || product.estimated_cogs === 0;
@@ -53,6 +58,7 @@ export default function ProductCard({ product, rank }) {
     if (res.data?.success) {
       setEnriched(res.data.enriched);
       setShowEnriched(true);
+      if (onEnriched) onEnriched(res.data.enriched);
     }
     setEnriching(false);
   };
