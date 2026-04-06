@@ -34,7 +34,10 @@ Deno.serve(async (req) => {
     base44.integrations.Core.InvokeLLM({
       prompt: `You are a world-class e-commerce trend analyst. Today is ${today} (${monthYear}).
 
-Based on your knowledge of TikTok Shop viral products, Amazon Best Sellers & Movers/Shakers, AliExpress Hot Products, Google Trends, Instagram/TikTok Reels trends, and Shopify trending stores — identify the HOTTEST products selling RIGHT NOW in: ${regionsStr}.
+You have deep knowledge of: TikTok Shop viral products, Amazon Best Sellers & Movers/Shakers, AliExpress Hot Products (via AliDrop), Alibaba trending wholesale items, Temu bestsellers, Google Trends, Instagram/TikTok Reels viral content, and Shopify trending stores.
+
+Identify the HOTTEST products selling RIGHT NOW in: ${regionsStr}.
+For each product, identify the BEST sourcing platform: AliExpress (via AliDrop), Alibaba, Temu, CJDropshipping, or digital (self-made).
 Niches to cover: ${nichesStr}.
 
 ONLY return products with real current sales momentum. No evergreen basics. Think: what are people impulse-buying this month in ${regionsStr}?
@@ -62,14 +65,12 @@ Return ALL these fields per product:
 - gross_margin_pct (0-100)
 - search_trend: "rising"|"peak"|"stable"
 - why_it_works (2 sentences, cite specific trend signal)
-- cj_search_keywords (array of 3)
-- target_audience
-- top_platforms (array)
-- image_url (Unsplash or Pexels direct .jpg/.png URL only)
-- prevailing_price_low (USD)
-- prevailing_price_high (USD)
-- price_source (e.g. "Amazon US, TikTok Shop")
-- price_strategy (1 sentence on competitive edge)
+- cj_search_keywords (array of 3 — exact search terms on CJDropshipping)
+- aliexpress_keywords (array of 3 — exact search terms on AliExpress/AliDrop)
+- alibaba_keywords (array of 3 — exact search terms on Alibaba for wholesale)
+- temu_keywords (array of 3 — exact search terms on Temu)
+- best_source: "aliexpress" | "alibaba" | "temu" | "cj" | "digital" — which platform to source from
+- source_reason: 1 sentence explaining why this is the best sourcing platform
 - price_type: "competitive" or "projected"
 - market_summary: overall 2-3 sentence summary of trends across all regions`,
       model: 'gemini_3_flash',
@@ -91,6 +92,11 @@ Return ALL these fields per product:
                 search_trend: { type: 'string' },
                 why_it_works: { type: 'string' },
                 cj_search_keywords: { type: 'array', items: { type: 'string' } },
+                aliexpress_keywords: { type: 'array', items: { type: 'string' } },
+                alibaba_keywords: { type: 'array', items: { type: 'string' } },
+                temu_keywords: { type: 'array', items: { type: 'string' } },
+                best_source: { type: 'string' },
+                source_reason: { type: 'string' },
                 target_audience: { type: 'string' },
                 top_platforms: { type: 'array', items: { type: 'string' } },
                 image_url: { type: 'string' },
