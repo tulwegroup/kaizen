@@ -19,7 +19,7 @@ export default function Products() {
   const [allProducts, setAllProducts] = useState([]);
   const [activeTab, setActiveTab] = useState("all");
   const [search, setSearch] = useState("");
-  const [dataSource, setDataSource] = useState("both"); // "shopify" | "research" | "both"
+  const [dataSource, setDataSource] = useState("both");
   const [error, setError] = useState(null);
 
   useEffect(() => { loadProducts(); }, []);
@@ -30,7 +30,6 @@ export default function Products() {
     const products = [];
     const seen = new Set();
 
-    // 1. Pull from Shopify store
     const shopRes = await base44.functions.invoke('getShopifyProducts', {});
     if (shopRes.data?.success) {
       for (const p of shopRes.data.products) {
@@ -39,7 +38,6 @@ export default function Products() {
       }
     }
 
-    // 2. Pull from research sessions (ImportJobs)
     const jobs = await base44.entities.ImportJob.list('-created_date', 100);
     for (const job of jobs) {
       if (!job.products_raw) continue;
@@ -57,10 +55,13 @@ export default function Products() {
     setLoading(false);
   };
 
-  const visibleProducts = allProducts.filter(p => {
+  const baseFiltered = allProducts.filter(p => {
     if (dataSource === 'shopify' && p._source !== 'shopify') return false;
     if (dataSource === 'research' && p._source !== 'research') return false;
+    return true;
+  });
 
+  const visibleProducts = baseFiltered.filter(p => {
     const matchesTab =
       activeTab === "all" ? true :
       activeTab === "digital" ? (p.product_type === 'digital' || p.estimated_cogs === 0) :
@@ -77,14 +78,9 @@ export default function Products() {
   });
 
   const countFor = (tabId) => {
-    const base = allProducts.filter(p => {
-      if (dataSource === 'shopify' && p._source !== 'shopify') return false;
-      if (dataSource === 'research' && p._source !== 'research') return false;
-      return true;
-    });
-    if (tabId === "all") return base.length;
-    if (tabId === "digital") return base.filter(p => p.product_type === 'digital' || p.estimated_cogs === 0).length;
-    return base.filter(p => p.best_source === tabId).length;
+    if (tabId === "all") return baseFiltered.length;
+    if (tabId === "digital") return baseFiltered.filter(p => p.product_type === 'digital' || p.estimated_cogs === 0).length;
+    return baseFiltered.filter(p => p.best_source === tabId).length;
   };
 
   const shopifyCount = allProducts.filter(p => p._source === 'shopify').length;
@@ -99,43 +95,44 @@ export default function Products() {
         </div>
         <div className="flex-1">
           <p className="text-sm font-bold text-slate-900">Product Catalog</p>
-          <p className="text-xs text-slate-400">Live Shopify store + AI research products — all sources in one view</p>
+          <p className="text-xs text-slate-400">Live Shopify store + AI research products</p>
         </div>
         <button onClick={loadProducts} disabled={loading} className="text-slate-400 hover:text-slate-600">
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
+      <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-4 md:space-y-6">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-3">
             <RefreshCw className="w-6 h-6 animate-spin" />
-            <p className="text-sm">Loading products from Shopify store & research sessions…</p>
+            <p className="text-sm">Loading products…</p>
           </div>
         ) : (
           <>
             {/* Source toggle */}
             <div className="flex items-center gap-2 flex-wrap">
               {[
-                { id: 'both', label: 'All Sources', icon: Package, count: allProducts.length },
-                { id: 'shopify', label: 'Shopify Store', icon: ShoppingBag, count: shopifyCount },
-                { id: 'research', label: 'AI Research', icon: Sparkles, count: researchCount },
+                { id: 'both',     label: 'All',        icon: Package,     count: allProducts.length },
+                { id: 'shopify',  label: 'Shopify',    icon: ShoppingBag, count: shopifyCount },
+                { id: 'research', label: 'AI Research', icon: Sparkles,   count: researchCount },
               ].map(({ id, label, icon: Icon, count }) => (
                 <button key={id} onClick={() => setDataSource(id)}
-                  className={`flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl border font-medium transition-colors
+                  className={`flex items-center gap-1.5 text-sm px-3 py-2 rounded-xl border font-medium transition-colors
                     ${dataSource === id ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400'}`}>
                   <Icon className="w-4 h-4" />
-                  {label}
+                  <span className="hidden sm:inline">{label}</span>
+                  <span className="sm:hidden">{label.split(' ')[0]}</span>
                   <span className={`text-xs px-1.5 py-0.5 rounded-full ${dataSource === id ? 'bg-white text-slate-900' : 'bg-slate-100 text-slate-500'}`}>{count}</span>
                 </button>
               ))}
             </div>
 
-            <ProductsAnalytics products={visibleProducts.length ? visibleProducts : allProducts} />
+            <ProductsAnalytics products={visibleProducts.length ? visibleProducts : baseFiltered} />
 
             {/* Tabs + Search */}
-            <div className="bg-white rounded-xl border border-slate-200 p-3 flex flex-wrap items-center gap-2">
-              <div className="flex flex-wrap gap-1.5 flex-1">
+            <div className="bg-white rounded-xl border border-slate-200 p-3 flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2">
+              <div className="flex flex-wrap gap-1.5 flex-1 w-full sm:w-auto">
                 {TABS.map(tab => {
                   const count = countFor(tab.id);
                   if (count === 0 && tab.id !== 'all') return null;
@@ -143,16 +140,18 @@ export default function Products() {
                     <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                       className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors
                         ${activeTab === tab.id ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-                      {tab.emoji} {tab.label}
+                      {tab.emoji}
+                      <span className="hidden sm:inline">{tab.label}</span>
+                      <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
                       <span className={`text-xs px-1.5 py-0.5 rounded-full ${activeTab === tab.id ? 'bg-white text-slate-900' : 'bg-white text-slate-500'}`}>{count}</span>
                     </button>
                   );
                 })}
               </div>
-              <div className="relative">
+              <div className="relative w-full sm:w-auto">
                 <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search products…"
-                  className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300 w-44" />
+                  className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300 w-full sm:w-44" />
               </div>
             </div>
 
