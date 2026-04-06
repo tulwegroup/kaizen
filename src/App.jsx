@@ -18,6 +18,7 @@ import { ShoppingBag } from 'lucide-react';
 import PipelineTest from './pages/PipelineTest';
 import ShopifyThemeBuilder from './pages/ShopifyThemeBuilder';
 import ImportJobs from './pages/ImportJobs';
+import Products from './pages/Products';
 import Layout from './components/Layout';
 
 const AuthenticatedApp = () => {
@@ -58,6 +59,7 @@ const AuthenticatedApp = () => {
         <Route path="/agent-research" element={<AgentResearch />} />
         <Route path="/outreach-tester" element={<OutreachTester />} />
         <Route path="/import-jobs" element={<ImportJobs />} />
+        <Route path="/products" element={<Products />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

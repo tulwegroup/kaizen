@@ -3,14 +3,15 @@ import { useState, useEffect } from "react";
 import { subscribe, getState } from "@/lib/researchStore";
 import {
   Sparkles, Users, FlaskConical, ShoppingBag, Zap, Mail, Send,
-  LayoutDashboard, ChevronLeft, ChevronRight, FileStack, Palette, RefreshCw
+  LayoutDashboard, ChevronLeft, ChevronRight, FileStack, Palette, RefreshCw, Package
 } from "lucide-react";
 
 const NAV_ITEMS = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard", color: "text-slate-600" },
   { to: "/agent-research", icon: Sparkles, label: "AI Research", color: "text-violet-600" },
   { to: "/automated-pipeline", icon: Zap, label: "Auto Pipeline", color: "text-slate-700" },
-  { to: "/import-jobs", icon: FileStack, label: "Drafts & Jobs", color: "text-amber-600", badge: "New" },
+  { to: "/import-jobs", icon: FileStack, label: "Drafts & Jobs", color: "text-amber-600" },
+  { to: "/products", icon: Package, label: "Product Catalog", color: "text-violet-600" },
   { to: "/influencer-crm", icon: Users, label: "Influencer CRM", color: "text-blue-600" },
   { to: "/influencer-engine", icon: Zap, label: "Influencer Engine", color: "text-amber-600" },
   { to: "/outreach-center", icon: Mail, label: "Outreach Center", color: "text-blue-600" },
