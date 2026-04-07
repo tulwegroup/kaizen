@@ -10,7 +10,7 @@ Deno.serve(async (req) => {
   const base44 = createClientFromRequest(req);
   let user;
   try { user = await base44.auth.me(); } catch (_) { user = null; }
-  if (!user || user.role !== 'admin') return Response.json({ error: 'Admin only' }, { status: 403 });
+  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { regions, niches, period = '1month' } = await req.json();
 
