@@ -8,9 +8,7 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return Response.json({ error: 'Method not allowed' }, { status: 405 });
 
   const base44 = createClientFromRequest(req);
-  let user;
-  try { user = await base44.auth.me(); } catch (_) { user = null; }
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
 
   const { regions, niches, period = '1month' } = await req.json();
 
