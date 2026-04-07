@@ -30,26 +30,36 @@ export default function Products() {
     const products = [];
     const seen = new Set();
 
-    const shopRes = await base44.functions.invoke('getShopifyProducts', {});
-    if (shopRes.data?.success) {
-      for (const p of shopRes.data.products) {
-        const key = p.product_name.toLowerCase().trim();
-        if (!seen.has(key)) { seen.add(key); products.push({ ...p, _source: 'shopify' }); }
+    try {
+      const shopRes = await base44.functions.invoke('getShopifyProducts', {});
+      if (shopRes.data?.success) {
+        for (const p of shopRes.data.products) {
+          const key = p.product_name.toLowerCase().trim();
+          if (!seen.has(key)) { seen.add(key); products.push({ ...p, _source: 'shopify' }); }
+        }
+      }
+    } catch (e) {
+      if (e?.response?.status === 401) {
+        setError('You must be logged in to view products.');
+        setLoading(false);
+        return;
       }
     }
 
-    const jobs = await base44.entities.ImportJob.list('-created_date', 100);
-    for (const job of jobs) {
-      if (!job.products_raw) continue;
-      const raw = JSON.parse(job.products_raw);
-      const enrichedMap = job.enriched_map ? JSON.parse(job.enriched_map) : {};
-      raw.forEach((p, i) => {
-        const key = (p.product_name || '').toLowerCase().trim();
-        if (seen.has(key)) return;
-        seen.add(key);
-        products.push({ ...p, _enriched: !!enrichedMap[i], _jobTitle: job.title, _source: 'research' });
-      });
-    }
+    try {
+      const jobs = await base44.entities.ImportJob.list('-created_date', 100);
+      for (const job of jobs) {
+        if (!job.products_raw) continue;
+        const raw = JSON.parse(job.products_raw);
+        const enrichedMap = job.enriched_map ? JSON.parse(job.enriched_map) : {};
+        raw.forEach((p, i) => {
+          const key = (p.product_name || '').toLowerCase().trim();
+          if (seen.has(key)) return;
+          seen.add(key);
+          products.push({ ...p, _enriched: !!enrichedMap[i], _jobTitle: job.title, _source: 'research' });
+        });
+      }
+    } catch (_) {}
 
     setAllProducts(products);
     setLoading(false);
