@@ -1,15 +1,9 @@
-/**
- * Agent Research — Automated Market Intelligence
- * Fast, reliable product research without live internet calls (avoids timeouts)
- */
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return Response.json({ error: 'Method not allowed' }, { status: 405 });
 
   const base44 = createClientFromRequest(req);
-
-
   const { regions, niches, period = '1month' } = await req.json();
 
   const PERIOD_MULTIPLIERS = { '24h': 1/30, '1week': 7/30, '1month': 1, '3month': 3, '6month': 6, '1year': 12 };
@@ -26,53 +20,16 @@ Deno.serve(async (req) => {
     : 'fashion, beauty, lifestyle, tech, fitness, home, viral, digital, pet, baby, gaming, outdoor, kitchen, wellness';
   const regionsStr = regions.join(', ');
   const today = new Date().toISOString().split('T')[0];
-  const monthYear = today.slice(0, 7); // e.g. 2026-04
+  const monthYear = today.slice(0, 7);
 
-  // Run both LLM calls in parallel
   const [productResearch, influencerResearch] = await Promise.all([
     base44.integrations.Core.InvokeLLM({
-      prompt: `You are a world-class e-commerce trend analyst. Today is ${today} (${monthYear}).
-
-You have deep knowledge of: TikTok Shop viral products, Amazon Best Sellers & Movers/Shakers, AliExpress Hot Products (via AliDrop), Alibaba trending wholesale items, Temu bestsellers, Google Trends, Instagram/TikTok Reels viral content, and Shopify trending stores.
-
-Identify the HOTTEST products selling RIGHT NOW in: ${regionsStr}.
-For each product, identify the BEST sourcing platform: AliExpress (via AliDrop), Alibaba, Temu, CJDropshipping, or digital (self-made).
-Niches to cover: ${nichesStr}.
-
-ONLY return products with real current sales momentum. No evergreen basics. Think: what are people impulse-buying this month in ${regionsStr}?
-
-Return AT LEAST 20 products (aim for 25), mixing across:
-1. PHYSICAL VIRAL — things blowing up on TikTok/Reels, trending on Amazon/AliExpress this month
-2. DIGITAL — AI prompt packs, Notion/Canva templates, planners, ebooks, social media templates (COGS = $0)
-3. SEASONAL — tied to ${monthYear}, upcoming holidays, or trending events in ${regionsStr}
-4. AI / TECH — software tools, presets, filters, apps riding AI hype
-5. NICHE COMMUNITY — dominating specific niches or subcultures right now
-
-Rules:
-- DIGITAL: estimated_cogs = 0, product_type = "digital"
-- PHYSICAL: product_type = "physical"
-- Be SPECIFIC with product names (e.g. "Rose Quartz Gua Sha Facial Tool" not just "beauty tool")
-- why_it_works must cite a REAL signal (e.g. "50M+ TikTok views", "#2 Amazon Beauty Mover April 2026")
-
-Return ALL these fields per product:
-- product_name (specific)
-- product_type: "physical" or "digital"
-- niche: fashion|beauty|lifestyle|tech|fitness|home|viral|digital|pet|baby|gaming|outdoor|kitchen|wellness|auto
-- region: which region it sells best in
-- estimated_cogs (USD, 0 for digital)
-- recommended_sell_price (USD)
-- gross_margin_pct (0-100)
-- search_trend: "rising"|"peak"|"stable"
-- why_it_works (2 sentences, cite specific trend signal)
-- cj_search_keywords (array of 3 — exact search terms on CJDropshipping)
-- aliexpress_keywords (array of 3 — exact search terms on AliExpress/AliDrop)
-- alibaba_keywords (array of 3 — exact search terms on Alibaba for wholesale)
-- temu_keywords (array of 3 — exact search terms on Temu)
-- best_source: "aliexpress" | "alibaba" | "temu" | "cj" | "digital" — which platform to source from
-- source_reason: 1 sentence explaining why this is the best sourcing platform
-- price_type: "competitive" or "projected"
-- market_summary: overall 2-3 sentence summary of trends across all regions`,
       model: 'gemini_3_flash',
+      prompt: `E-commerce analyst. Date: ${today}. Regions: ${regionsStr}. Niches: ${nichesStr}.
+
+List 12 hot trending products people are impulse-buying RIGHT NOW. Mix physical viral products and digital products (templates, AI packs, COGS=$0).
+
+Return these fields for each: product_name, product_type (physical/digital), niche, region, estimated_cogs, recommended_sell_price, gross_margin_pct, search_trend (rising/peak/stable), why_it_works (1 sentence + trend signal), cj_search_keywords (3 items), aliexpress_keywords (3 items), alibaba_keywords (3 items), temu_keywords (3 items), best_source (aliexpress/alibaba/temu/cj/digital), source_reason (1 sentence), target_audience, top_platforms (array), price_type (competitive/projected). Also return market_summary (2 sentences).`,
       response_json_schema: {
         type: 'object',
         properties: {
@@ -98,11 +55,6 @@ Return ALL these fields per product:
                 source_reason: { type: 'string' },
                 target_audience: { type: 'string' },
                 top_platforms: { type: 'array', items: { type: 'string' } },
-                image_url: { type: 'string' },
-                prevailing_price_low: { type: 'number' },
-                prevailing_price_high: { type: 'number' },
-                price_source: { type: 'string' },
-                price_strategy: { type: 'string' },
                 price_type: { type: 'string' },
               }
             }
@@ -113,8 +65,8 @@ Return ALL these fields per product:
     }),
 
     base44.integrations.Core.InvokeLLM({
-      prompt: `You are an influencer marketing expert. For regions: ${regionsStr} and niches: ${nichesStr}, provide recommended influencer types and regional strategies.`,
       model: 'gemini_3_flash',
+      prompt: `Influencer marketing expert. Regions: ${regionsStr}. Niches: ${nichesStr}. List 5 recommended influencer types and 3 regional strategies.`,
       response_json_schema: {
         type: 'object',
         properties: {
@@ -158,22 +110,14 @@ Return ALL these fields per product:
 
   const profitProjections = products.map(product => {
     const isDigital = product.product_type === 'digital' || product.estimated_cogs === 0;
-    const sampleCostPerInfluencer = isDigital ? 0 : product.estimated_cogs * 2;
-    const totalSampleCost = sampleCostPerInfluencer * NUM_INFLUENCERS;
-
-    const avgEngagement = 0.04;
-    const conversionRate = 0.015;
-    const estimatedReach = AVG_FOLLOWERS * NUM_INFLUENCERS;
-    const estimatedConversions = Math.round(estimatedReach * avgEngagement * conversionRate);
-
-    const commissionPct = BASE_COMMISSION_PCT;
+    const totalSampleCost = isDigital ? 0 : product.estimated_cogs * 2 * NUM_INFLUENCERS;
+    const estimatedConversions = Math.round(AVG_FOLLOWERS * NUM_INFLUENCERS * 0.04 * 0.015);
     const scaledConversions = Math.round(estimatedConversions * periodMultiplier);
     const scaledRevenue = scaledConversions * product.recommended_sell_price;
     const scaledCogs = scaledConversions * (product.estimated_cogs || 0);
-    const scaledCommission = scaledRevenue * commissionPct;
+    const scaledCommission = scaledRevenue * BASE_COMMISSION_PCT;
     const netProfit = scaledRevenue - scaledCogs - totalSampleCost - scaledCommission;
-    const totalInvestment = totalSampleCost || 1;
-    const roi = ((netProfit / totalInvestment) * 100).toFixed(1);
+    const roi = ((netProfit / (totalSampleCost || 1)) * 100).toFixed(1);
 
     return {
       product_name: product.product_name,
@@ -187,7 +131,7 @@ Return ALL these fields per product:
       gross_revenue: Math.round(scaledRevenue),
       cogs_total: Math.round(scaledCogs),
       sample_cost: Math.round(totalSampleCost),
-      commission_pct: Math.round(commissionPct * 100),
+      commission_pct: Math.round(BASE_COMMISSION_PCT * 100),
       commission_paid: Math.round(scaledCommission),
       net_profit: Math.round(netProfit),
       roi_pct: Number(roi),
