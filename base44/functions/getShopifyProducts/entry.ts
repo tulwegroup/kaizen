@@ -4,7 +4,8 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return Response.json({ error: 'POST only' }, { status: 405 });
 
   const base44 = createClientFromRequest(req);
-  const user = await base44.auth.me();
+  let user;
+  try { user = await base44.auth.me(); } catch (_) { user = null; }
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
   const sessions = await base44.asServiceRole.entities.ShopifySession.list();
