@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Send, RefreshCw, Filter, Check, X, ChevronDown, Mail, Users, Zap } from "lucide-react";
+import { Send, RefreshCw, Filter, Check, X, ChevronDown, Mail, Users, Zap, ShoppingBag, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const NICHES = ["all", "fashion", "beauty", "lifestyle", "tech", "fitness", "home", "pet", "baby", "gaming", "outdoor", "kitchen", "wellness", "viral", "digital"];
@@ -17,6 +17,9 @@ export default function BulkSendPanel() {
   const [sendResult, setSendResult] = useState(null);
 
   // Campaign config
+  const [shopifyProducts, setShopifyProducts] = useState([]);
+  const [productSearch, setProductSearch] = useState("");
+  const [showProductPicker, setShowProductPicker] = useState(false);
   const [productName, setProductName] = useState("");
   const [productDesc, setProductDesc] = useState("");
   const [commissionPct, setCommissionPct] = useState(15);
@@ -26,6 +29,13 @@ export default function BulkSendPanel() {
   const [customMsg, setCustomMsg] = useState("");
 
   useEffect(() => { loadInfluencers(); }, [filterNiche, filterPlatform, filterStatus]);
+
+  useEffect(() => {
+    // Load Shopify products for the smart picker
+    base44.functions.invoke('getShopifyProducts', {}).then(res => {
+      if (res.data?.success) setShopifyProducts(res.data.products || []);
+    }).catch(() => {});
+  }, []);
 
   const loadInfluencers = async () => {
     setLoading(true);
@@ -81,15 +91,45 @@ export default function BulkSendPanel() {
         <h2 className="font-bold text-slate-800 mb-1">Campaign Setup</h2>
         <p className="text-xs text-slate-500 mb-4">Each email will be personalized with the influencer's handle, your product, their unique discount code, and commission details.</p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 relative">
           <div>
-            <label className="text-xs font-semibold text-slate-600 block mb-1">Product Name *</label>
-            <input value={productName} onChange={e => setProductName(e.target.value)}
-              placeholder="e.g. LED Therapy Face Mask"
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" />
+            <div>
+            <label className="text-xs font-semibold text-slate-600 block mb-1">Product Name * <span className="text-violet-500 font-normal">— type or pick from your store</span></label>
+            <div className="relative">
+              <input value={productName} onChange={e => { setProductName(e.target.value); setShowProductPicker(true); setProductSearch(e.target.value); }}
+                onFocus={() => setShowProductPicker(true)}
+                placeholder="Type or pick from Shopify store…"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300 pr-8" />
+              <ShoppingBag className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2" />
+            </div>
+            {showProductPicker && shopifyProducts.length > 0 && (
+              <div className="absolute z-50 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-56 overflow-y-auto w-80">
+                <div className="p-2 border-b border-slate-100">
+                  <input autoFocus value={productSearch} onChange={e => setProductSearch(e.target.value)}
+                    placeholder="Search products…"
+                    className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-300" />
+                </div>
+                {shopifyProducts
+                  .filter(p => !productSearch || p.product_name.toLowerCase().includes(productSearch.toLowerCase()))
+                  .slice(0, 30)
+                  .map((p, i) => (
+                    <button key={i} onClick={() => { setProductName(p.product_name); setProductDesc(p.niche ? `${p.niche} product` : ''); setShowProductPicker(false); setProductSearch(''); }}
+                      className="w-full text-left px-3 py-2.5 hover:bg-violet-50 text-sm border-b border-slate-50 last:border-0 flex items-center gap-2">
+                      {p.image_url && <img src={p.image_url} alt="" className="w-7 h-7 rounded object-cover shrink-0" onError={e => e.target.style.display='none'} />}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-slate-800 truncate text-xs">{p.product_name}</p>
+                        <p className="text-xs text-slate-400">${p.recommended_sell_price} · {p.niche}</p>
+                      </div>
+                    </button>
+                  ))}
+                {shopifyProducts.filter(p => !productSearch || p.product_name.toLowerCase().includes(productSearch.toLowerCase())).length === 0 && (
+                  <p className="text-xs text-slate-400 text-center py-4">No products match</p>
+                )}
+                <button onClick={() => setShowProductPicker(false)} className="w-full text-center py-2 text-xs text-slate-400 hover:text-slate-600 border-t border-slate-100">Close</button>
+              </div>
+            )}
           </div>
-          <div>
-            <label className="text-xs font-semibold text-slate-600 block mb-1">Brand Name</label>
+          <label className="text-xs font-semibold text-slate-600 block mb-1">Brand Name</label>
             <input value={brandName} onChange={e => setBrandName(e.target.value)}
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" />
           </div>
