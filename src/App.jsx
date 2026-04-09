@@ -19,6 +19,7 @@ import PipelineTest from './pages/PipelineTest';
 import ShopifyThemeBuilder from './pages/ShopifyThemeBuilder';
 import ImportJobs from './pages/ImportJobs';
 import Products from './pages/Products';
+import OutreachBlast from './pages/OutreachBlast';
 import Layout from './components/Layout';
 
 const AuthenticatedApp = () => {
@@ -60,6 +61,7 @@ const AuthenticatedApp = () => {
         <Route path="/outreach-tester" element={<OutreachTester />} />
         <Route path="/import-jobs" element={<ImportJobs />} />
         <Route path="/products" element={<Products />} />
+        <Route path="/outreach-blast" element={<OutreachBlast />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>

@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { to: '/automated-pipeline', label: 'Auto Pipeline',      icon: Zap,             color: 'text-slate-600' },
   { to: '/influencer-crm',     label: 'Influencer CRM',     icon: Users,           color: 'text-blue-600' },
   { to: '/influencer-engine',  label: 'Influencer Engine',  icon: Zap,             color: 'text-amber-600' },
+  { to: '/outreach-blast',     label: 'Blast Outreach',     icon: Send,            color: 'text-blue-600' },
   { to: '/outreach-center',    label: 'Outreach Center',    icon: Mail,            color: 'text-blue-600' },
   { to: '/outreach-tester',    label: 'Outreach Tester',    icon: Send,            color: 'text-violet-600' },
   { to: '/shopify-oauth',      label: 'Shopify Connect',    icon: ShoppingBag,     color: 'text-green-600' },
