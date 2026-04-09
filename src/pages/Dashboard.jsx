@@ -1,5 +1,21 @@
 import { Link } from "react-router-dom";
-import { Sparkles, Users, FlaskConical, ShoppingBag, Zap, Mail, Send } from "lucide-react";
+import { Sparkles, Users, FlaskConical, ShoppingBag, Zap, Mail, Send, Globe, Tag } from "lucide-react";
+
+const REGIONS_BY_GROUP = {
+  "Middle East": ["🇦🇪 UAE","🇸🇦 Saudi Arabia","🇪🇬 Egypt","🇶🇦 Qatar","🇰🇼 Kuwait","🇧🇭 Bahrain","🇴🇲 Oman","🇯🇴 Jordan","🇱🇧 Lebanon","🇮🇶 Iraq"],
+  "Europe": ["🇬🇧 United Kingdom","🇩🇪 Germany","🇫🇷 France","🇮🇹 Italy","🇪🇸 Spain","🇳🇱 Netherlands","🇸🇪 Sweden","🇵🇱 Poland","🇵🇹 Portugal","🇧🇪 Belgium","🇨🇭 Switzerland","🇦🇹 Austria","🇩🇰 Denmark","🇳🇴 Norway","🇫🇮 Finland","🇬🇷 Greece","🇨🇿 Czech Republic","🇷🇴 Romania","🇭🇺 Hungary","🇮🇪 Ireland"],
+  "Americas": ["🇺🇸 United States","🇨🇦 Canada","🇧🇷 Brazil","🇲🇽 Mexico","🇦🇷 Argentina","🇨🇴 Colombia","🇨🇱 Chile","🇵🇪 Peru"],
+  "Asia Pacific": ["🇮🇳 India","🇨🇳 China","🇯🇵 Japan","🇰🇷 South Korea","🇦🇺 Australia","🇳🇿 New Zealand","🇸🇬 Singapore","🇲🇾 Malaysia","🇮🇩 Indonesia","🇹🇭 Thailand","🇵🇭 Philippines","🇻🇳 Vietnam","🇹🇼 Taiwan","🇭🇰 Hong Kong"],
+  "South Asia": ["🇵🇰 Pakistan","🇧🇩 Bangladesh","🇱🇰 Sri Lanka"],
+  "Africa": ["🇿🇦 South Africa","🇳🇬 Nigeria","🇰🇪 Kenya","🇬🇭 Ghana","🇲🇦 Morocco","🇪🇹 Ethiopia"],
+  "Other": ["🇹🇷 Turkey","🇷🇺 Russia","🇮🇱 Israel"],
+};
+
+const NICHES = [
+  "👗 Fashion","💄 Beauty","🏡 Lifestyle","📱 Tech","💪 Fitness","🛋️ Home",
+  "🎨 Digital Products","🔥 Viral / TikTok","🧘 Wellness","🎮 Gaming",
+  "🐾 Pet Products","👶 Baby & Kids","🏕️ Outdoor & Travel","🍳 Kitchen","🚗 Auto Accessories",
+];
 
 const MENU_ITEMS = [
   {
@@ -127,6 +143,44 @@ export default function Dashboard() {
               </Link>
             );
           })}
+        </div>
+
+        {/* Research Coverage */}
+        <div className="mt-14 space-y-8">
+          {/* Niches */}
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <Tag className="w-4 h-4 text-slate-500" />
+              <p className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Product Categories Covered</p>
+              <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{NICHES.length} categories</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {NICHES.map(n => (
+                <span key={n} className="px-3 py-1.5 rounded-full text-sm font-medium bg-white border border-slate-200 text-slate-700">{n}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* Regions */}
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <Globe className="w-4 h-4 text-slate-500" />
+              <p className="text-sm font-semibold text-slate-700 uppercase tracking-wide">Countries & Regions Covered</p>
+              <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{Object.values(REGIONS_BY_GROUP).flat().length} countries</span>
+            </div>
+            <div className="space-y-4">
+              {Object.entries(REGIONS_BY_GROUP).map(([group, countries]) => (
+                <div key={group}>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{group}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {countries.map(c => (
+                      <span key={c} className="px-2.5 py-1 rounded-full text-xs font-medium bg-white border border-slate-200 text-slate-600">{c}</span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>
