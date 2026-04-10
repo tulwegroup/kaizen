@@ -28,6 +28,10 @@ export default function BulkSendPanel() {
   const [senderName, setSenderName] = useState("The Partnerships Team");
   const [customMsg, setCustomMsg] = useState("");
 
+  // Pitch templates from tester
+  const [pitchTemplates, setPitchTemplates] = useState([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+
   useEffect(() => { loadInfluencers(); }, [filterNiche, filterPlatform, filterStatus]);
 
   useEffect(() => {
@@ -35,6 +39,8 @@ export default function BulkSendPanel() {
     base44.functions.invoke('getShopifyProducts', {}).then(res => {
       if (res.data?.success) setShopifyProducts(res.data.products || []);
     }).catch(() => {});
+    // Load saved pitch templates from Outreach Tester
+    base44.entities.PitchTemplate.list('-created_date', 20).then(data => setPitchTemplates(data)).catch(() => {});
   }, []);
 
   const loadInfluencers = async () => {
@@ -64,6 +70,7 @@ export default function BulkSendPanel() {
     if (!selected.size || !productName) return;
     setSending(true);
     setSendResult(null);
+    const selectedTemplate = pitchTemplates.find(t => t.id === selectedTemplateId);
     const res = await base44.functions.invoke('bulkSendOutreach', {
       influencer_ids: [...selected],
       product_name: productName,
@@ -73,6 +80,8 @@ export default function BulkSendPanel() {
       brand_name: brandName,
       sender_name: senderName,
       custom_message: customMsg,
+      pitch_template: selectedTemplate ? selectedTemplate.dm_text : null,
+      pitch_subject: selectedTemplate ? selectedTemplate.subject_line : null,
     });
     setSendResult(res.data);
     setSending(false);
@@ -159,6 +168,25 @@ export default function BulkSendPanel() {
             <input value={customMsg} onChange={e => setCustomMsg(e.target.value)}
               placeholder="Any extra personalized message..."
               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-xs font-semibold text-slate-600 block mb-1">
+              Pitch Template <span className="text-violet-500 font-normal">— from Outreach Tester (optional)</span>
+            </label>
+            {pitchTemplates.length === 0 ? (
+              <p className="text-xs text-slate-400 italic">No saved templates yet — generate and save pitches in the Outreach Tester tab first.</p>
+            ) : (
+              <select value={selectedTemplateId} onChange={e => setSelectedTemplateId(e.target.value)}
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300">
+                <option value="">— Use default generated email —</option>
+                {pitchTemplates.map(t => (
+                  <option key={t.id} value={t.id}>{t.template_name} {t.fit_score ? `(${t.fit_score}/10)` : ''}</option>
+                ))}
+              </select>
+            )}
+            {selectedTemplateId && (
+              <p className="text-xs text-emerald-600 mt-1">✅ Template selected — email body will use this approved pitch.</p>
+            )}
           </div>
         </div>
       </div>

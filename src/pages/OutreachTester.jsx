@@ -1,13 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { base44 } from "@/api/base44Client";
-import { Link } from "react-router-dom";
 import {
-  ChevronLeft, Send, RefreshCw, Sparkles, Copy, CheckCircle,
-  Instagram, Plus, X, ChevronDown, ChevronUp
+  Send, RefreshCw, Sparkles, Copy, CheckCircle,
+  Instagram, X, ChevronDown, ChevronUp, Users, Save, Edit3, Star
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
 function TikTokIcon() {
   return (
@@ -17,455 +15,400 @@ function TikTokIcon() {
   );
 }
 
-function detectPlatform(raw) {
-  const h = raw.toLowerCase().replace(/\s/g, "");
-  if (h.startsWith("tt:") || h.includes("tiktok.com")) return "tiktok";
-  if (h.startsWith("ig:") || h.includes("instagram.com") || h.includes("ig.com")) return "instagram";
-  return "tiktok"; // default to TikTok
-}
-
-function cleanHandle(raw) {
-  return raw.trim().replace(/^@/, "").split("?")[0].split("/").filter(Boolean).pop() || raw.trim();
-}
-
-const SAMPLE_PRODUCTS = [
-  { name: "Rose Quartz Gua Sha Facial Tool", price: "29.99", code: "GLOW20", commission: "20" },
-  { name: "Magnetic Phone Mount Car Holder", price: "19.99", code: "DRIVE15", commission: "15" },
-  { name: "LED Scalp Massager", price: "34.99", code: "SCALP25", commission: "20" },
-  { name: "Posture Corrector Smart Wearable", price: "39.99", code: "POSTURE20", commission: "20" },
-  { name: "Mini Portable Blender Bottle", price: "24.99", code: "BLEND15", commission: "15" },
+const PITCH_STYLES = [
+  { id: "friendly_casual",  label: "😊 Friendly & Casual",   desc: "Warm, conversational, feels like a DM from a friend" },
+  { id: "professional",     label: "💼 Professional",         desc: "Polished, brand-forward, business tone" },
+  { id: "bold_fomo",        label: "🔥 Bold / FOMO",          desc: "Urgency-driven, exciting offer, FOMO-inducing" },
+  { id: "story_driven",     label: "📖 Story-Driven",         desc: "Narrative hook, connects product to creator's journey" },
+  { id: "short_punchy",     label: "⚡ Short & Punchy",       desc: "Ultra-brief, direct ask, under 80 words" },
 ];
 
-const STATUS_COLORS = {
-  pending: "bg-slate-100 text-slate-600",
-  generating: "bg-amber-100 text-amber-700",
-  done: "bg-emerald-100 text-emerald-700",
-  error: "bg-red-100 text-red-700",
+const PITCH_STYLE_PROMPTS = {
+  friendly_casual:  "Write in a warm, casual, friendly tone like a genuine DM from a real person. Use first names, feel conversational.",
+  professional:     "Write in a polished, professional brand-partnership tone. Structured, clear, confident.",
+  bold_fomo:        "Write with urgency and excitement. Make the opportunity sound exclusive and time-sensitive without being pushy.",
+  story_driven:     "Open with a short story or narrative hook that connects the influencer's content style to the product naturally.",
+  short_punchy:     "Keep it under 80 words total. Every word counts. Direct, punchy, compelling — no fluff.",
 };
 
 export default function OutreachTester() {
-  const [inputLine, setInputLine] = useState("");
-  const [accounts, setAccounts] = useState([
-    // pre-filled examples so user knows the format
-    { raw: "@glowwithzara", handle: "glowwithzara", platform: "tiktok" },
-    { raw: "@techwithahmad", handle: "techwithahmad", platform: "instagram" },
-  ]);
+  // DB influencer picker
+  const [dbInfluencers, setDbInfluencers] = useState([]);
+  const [dbLoading, setDbLoading] = useState(false);
+  const [dbFilter, setDbFilter] = useState("");
+  const [selectedInfluencers, setSelectedInfluencers] = useState([]);
 
-  const [product, setProduct] = useState(SAMPLE_PRODUCTS[0]);
-  const [useCustomProduct, setUseCustomProduct] = useState(false);
-  const [customProduct, setCustomProduct] = useState({ name: "", price: "", code: "", commission: "20" });
+  // Product
+  const [productName, setProductName] = useState("Rose Quartz Gua Sha Facial Tool");
+  const [productPrice, setProductPrice] = useState("29.99");
+  const [discountCode, setDiscountCode] = useState("GLOW20");
+  const [commission, setCommission] = useState("20");
 
+  // Pitch style
+  const [pitchStyle, setPitchStyle] = useState("friendly_casual");
+
+  // Results
   const [running, setRunning] = useState(false);
-  const [results, setResults] = useState([]); // { handle, platform, status, pitch, error, expanded, copied }
+  const [results, setResults] = useState([]);
+  const [editingIdx, setEditingIdx] = useState(null);
+  const [editText, setEditText] = useState("");
 
-  const activeProduct = useCustomProduct ? customProduct : product;
+  // Saved templates
+  const [savedTemplates, setSavedTemplates] = useState([]);
+  const [savingIdx, setSavingIdx] = useState(null);
 
-  // ── Handle input ──────────────────────────────────────────────
-  const addAccounts = () => {
-    const lines = inputLine.split(/[\n,]+/).map(l => l.trim()).filter(Boolean);
-    const newAccts = lines.map(raw => {
-      const platform = detectPlatform(raw);
-      const stripped = raw.replace(/^(tt:|ig:)/i, "");
-      const handle = cleanHandle(stripped);
-      return { raw, handle, platform };
-    });
-    setAccounts(prev => {
-      const existing = new Set(prev.map(a => a.handle.toLowerCase()));
-      return [...prev, ...newAccts.filter(a => !existing.has(a.handle.toLowerCase()))];
-    });
-    setInputLine("");
+  useEffect(() => {
+    loadDbInfluencers();
+    loadSavedTemplates();
+  }, []);
+
+  const loadDbInfluencers = async () => {
+    setDbLoading(true);
+    const data = await base44.entities.InfluencerProfile.filter({}, '-follower_count', 300);
+    setDbInfluencers(data);
+    setDbLoading(false);
   };
 
-  const removeAccount = (handle) => setAccounts(prev => prev.filter(a => a.handle !== handle));
+  const loadSavedTemplates = async () => {
+    const data = await base44.entities.PitchTemplate.list('-created_date', 20);
+    setSavedTemplates(data);
+  };
 
-  const togglePlatform = (handle) => setAccounts(prev =>
-    prev.map(a => a.handle === handle
-      ? { ...a, platform: a.platform === "tiktok" ? "instagram" : "tiktok" }
-      : a)
+  const filteredDb = dbInfluencers.filter(inf =>
+    !dbFilter ||
+    inf.platform_username?.toLowerCase().includes(dbFilter.toLowerCase()) ||
+    inf.niche?.toLowerCase().includes(dbFilter.toLowerCase()) ||
+    inf.platform?.toLowerCase().includes(dbFilter.toLowerCase())
   );
 
-  // ── Run agent ─────────────────────────────────────────────────
+  const toggleSelectInfluencer = (inf) => {
+    setSelectedInfluencers(prev => {
+      const exists = prev.find(x => x.id === inf.id);
+      if (exists) return prev.filter(x => x.id !== inf.id);
+      return [...prev, inf];
+    });
+  };
+
   const runAgent = async () => {
-    if (!accounts.length || !activeProduct.name) return;
+    if (!selectedInfluencers.length || !productName) return;
     setRunning(true);
-    setResults(accounts.map(a => ({ ...a, status: "pending", pitch: null, error: null, expanded: false, copied: false, sent: false, sending: false, discoveredEmail: null, emailSearching: false })));
+    setResults(selectedInfluencers.map(inf => ({ ...inf, status: "pending", pitch: null, expanded: false })));
 
-    for (let i = 0; i < accounts.length; i++) {
-      const acct = accounts[i];
+    for (let i = 0; i < selectedInfluencers.length; i++) {
+      const inf = selectedInfluencers[i];
+      const platformName = inf.platform === "tiktok" ? "TikTok" : "Instagram";
+      const stylePrompt = PITCH_STYLE_PROMPTS[pitchStyle];
 
-      // Step 1: search for email + generate pitch in parallel
-      setResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: "generating", emailSearching: true } : r));
+      setResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: "generating" } : r));
 
-      const platformName = acct.platform === "tiktok" ? "TikTok" : "Instagram";
+      const pitchRes = await base44.integrations.Core.InvokeLLM({
+        prompt: `You are a brand partnership manager writing a personalised influencer pitch.
 
-      const [pitchRes, emailRes] = await Promise.all([
-        base44.integrations.Core.InvokeLLM({
-          prompt: `You are a brand partnership manager writing a short, human, personalised influencer DM.
+Style instruction: ${stylePrompt}
 
 Platform: ${platformName}
-Influencer handle: @${acct.handle}
-Product to promote: ${activeProduct.name}
-Sell price: $${activeProduct.price}
-Commission: ${activeProduct.commission}% per sale
-Their discount code: ${activeProduct.code}
+Influencer handle: @${inf.platform_username}
+Niche: ${inf.niche || 'lifestyle'}
+Followers: ${inf.follower_count?.toLocaleString() || 'unknown'}
+Product: ${productName}
+Price: $${productPrice}
+Commission: ${commission}% per sale
+Their discount code: ${discountCode}
 
-Instructions:
-1. Infer the influencer's likely niche and content style from their handle name
-2. Open with a short genuine compliment that sounds personal (not generic)
-3. Introduce the product naturally in 1-2 lines
-4. State the deal: code ${activeProduct.code} for followers + ${activeProduct.commission}% commission on every sale
-5. Simple low-pressure CTA — just reply if interested
-6. Friendly sign-off, under 150 words total
-
-Also return:
-- dm_preview: first ~80 chars (what shows in notification)
-- subject_line: email subject 30 chars max
-- fit_score: 1-10
-- fit_reason: 1 sentence`,
-          response_json_schema: {
-            type: "object",
-            properties: {
-              dm_text: { type: "string" },
-              dm_preview: { type: "string" },
-              subject_line: { type: "string" },
-              fit_score: { type: "number" },
-              fit_reason: { type: "string" },
-            }
+Write the outreach pitch following the style instruction above.
+Return: dm_text (full message), dm_preview (first 80 chars), subject_line (max 40 chars), fit_score (1-10), fit_reason (1 sentence)`,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            dm_text: { type: "string" },
+            dm_preview: { type: "string" },
+            subject_line: { type: "string" },
+            fit_score: { type: "number" },
+            fit_reason: { type: "string" },
           }
-        }),
-        base44.functions.invoke("findInfluencerEmail", { handle: acct.handle, platform: acct.platform })
-      ]);
+        }
+      });
 
-      const emailData = emailRes?.data || {};
-      const discoveredEmail = emailData?.email && emailData.email.includes("@") ? emailData.email : null;
-
-      setResults(prev => prev.map((r, idx) => idx === i ? { ...r, emailSearching: false, discoveredEmail, emailSource: emailData?.source, emailMethod: emailData?.method } : r));
-
-      // Step 2: auto-send if email found
-      let sent = false;
-      let sendError = null;
-      if (discoveredEmail) {
-        setResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: "done", pitch: pitchRes, expanded: true, sending: true } : r));
-        const sendRes = await base44.functions.invoke("sendInfluencerPitch", {
-          to_email: discoveredEmail,
-          handle: acct.handle,
-          platform: acct.platform,
-          subject: pitchRes.subject_line,
-          dm_text: pitchRes.dm_text,
-          product_name: activeProduct.name,
-        });
-        sent = sendRes.data?.success || false;
-        sendError = sendRes.data?.error || null;
-      }
-
-      setResults(prev => prev.map((r, idx) =>
-        idx === i ? { ...r, status: "done", pitch: pitchRes, expanded: true, sending: false, sent, sendError } : r
-      ));
+      setResults(prev => prev.map((r, idx) => idx === i ? { ...r, status: "done", pitch: pitchRes, expanded: true } : r));
     }
-
     setRunning(false);
   };
 
-  const copyPitch = (idx) => {
-    const r = results[idx];
-    if (!r?.pitch?.dm_text) return;
-    navigator.clipboard.writeText(r.pitch.dm_text);
-    setResults(prev => prev.map((r, i) => i === idx ? { ...r, copied: true } : r));
-    setTimeout(() => setResults(prev => prev.map((r, i) => i === idx ? { ...r, copied: false } : r)), 2000);
+  const startEdit = (idx) => {
+    setEditingIdx(idx);
+    setEditText(results[idx].pitch.dm_text);
   };
 
-  const toggleExpand = (idx) => setResults(prev => prev.map((r, i) => i === idx ? { ...r, expanded: !r.expanded } : r));
+  const saveEdit = (idx) => {
+    setResults(prev => prev.map((r, i) => i === idx ? { ...r, pitch: { ...r.pitch, dm_text: editText } } : r));
+    setEditingIdx(null);
+  };
+
+  const saveAsTemplate = async (idx) => {
+    setSavingIdx(idx);
+    const r = results[idx];
+    const styleName = PITCH_STYLES.find(s => s.id === pitchStyle)?.label || pitchStyle;
+    const name = `${styleName} — ${productName} — @${r.platform_username}`;
+    await base44.entities.PitchTemplate.create({
+      template_name: name,
+      pitch_style: pitchStyle,
+      subject_line: r.pitch.subject_line,
+      dm_text: r.pitch.dm_text,
+      product_name: productName,
+      platform: r.platform || "both",
+      fit_score: r.pitch.fit_score,
+    });
+    await loadSavedTemplates();
+    setSavingIdx(null);
+  };
+
+  const deleteTemplate = async (id) => {
+    await base44.entities.PitchTemplate.delete(id);
+    setSavedTemplates(prev => prev.filter(t => t.id !== id));
+  };
 
   const doneCount = results.filter(r => r.status === "done").length;
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center gap-3">
-        <Link to="/" className="text-slate-400 hover:text-slate-600"><ChevronLeft className="w-5 h-5" /></Link>
-        <div className="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center">
-          <Send className="w-4 h-4 text-white" />
-        </div>
-        <div>
-          <p className="text-sm font-bold text-slate-900">Influencer Outreach Agent</p>
-          <p className="text-xs text-slate-400">Add handles → agent auto-drafts personalised pitches for each</p>
-        </div>
-      </div>
+    <div className="space-y-6">
 
-      <div className="max-w-5xl mx-auto p-6 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* LEFT: Setup */}
+        <div className="space-y-4">
 
-          {/* ── LEFT: Setup ── */}
-          <div className="space-y-4">
-
-            {/* Handle input */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold text-slate-800">TikTok & Instagram Handles</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <p className="text-xs text-slate-500">Paste handles one per line, or separated by commas. Include @, full URLs, or just the username.</p>
-                <textarea
-                  rows={4}
-                  placeholder={"@handle → defaults to TikTok\nig:@handle → Instagram\ntt:@handle → TikTok\nhttps://www.tiktok.com/@viralfindsme"}
-                  value={inputLine}
-                  onChange={e => setInputLine(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter" && e.metaKey) addAccounts(); }}
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300 resize-none font-mono"
-                />
-                <Button onClick={addAccounts} disabled={!inputLine.trim()} variant="outline" className="w-full gap-2 text-sm">
-                  <Plus className="w-4 h-4" /> Add to Queue
-                </Button>
-
-                {/* Account list */}
-                {accounts.length > 0 && (
-                  <div className="space-y-2 pt-1">
-                    <p className="text-xs text-slate-400 font-medium">{accounts.length} account{accounts.length !== 1 ? 's' : ''} queued</p>
-                    {accounts.map(acct => (
-                      <div key={acct.handle} className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-                        <span className="text-sm font-mono text-slate-700 flex-1">@{acct.handle}</span>
-                        {/* Platform toggle */}
-                        <button
-                          onClick={() => togglePlatform(acct.handle)}
-                          title="Click to switch platform"
-                          className={`text-xs px-2 py-0.5 rounded font-medium flex items-center gap-1 transition-all ${
-                            acct.platform === "tiktok"
-                              ? "bg-black text-white"
-                              : "bg-gradient-to-r from-purple-500 to-pink-500 text-white"
-                          }`}
-                        >
-                          {acct.platform === "tiktok" ? <TikTokIcon /> : <Instagram className="w-3 h-3" />}
-                          {acct.platform === "tiktok" ? "TikTok" : "Instagram"}
-                        </button>
-                        <button onClick={() => removeAccount(acct.handle)} className="text-slate-400 hover:text-red-400">
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                    <p className="text-xs text-slate-400 mt-1">💡 Email addresses will be auto-discovered from public bios & Linktrees.</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Product */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold text-slate-800">Product to Promote</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex gap-2 mb-1">
-                  <button
-                    onClick={() => setUseCustomProduct(false)}
-                    className={`flex-1 text-xs py-1.5 rounded-lg font-medium border transition-all ${!useCustomProduct ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200'}`}
-                  >
-                    Quick Select
-                  </button>
-                  <button
-                    onClick={() => setUseCustomProduct(true)}
-                    className={`flex-1 text-xs py-1.5 rounded-lg font-medium border transition-all ${useCustomProduct ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200'}`}
-                  >
-                    Custom Product
-                  </button>
+          {/* Pick from DB */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+                <Users className="w-4 h-4 text-blue-500" /> Pick from Influencer Database
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <input
+                value={dbFilter}
+                onChange={e => setDbFilter(e.target.value)}
+                placeholder="Filter by handle, niche, platform…"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+              />
+              {dbLoading ? (
+                <div className="flex items-center gap-2 text-slate-400 text-sm py-2">
+                  <RefreshCw className="w-4 h-4 animate-spin" /> Loading…
                 </div>
-
-                {!useCustomProduct ? (
-                  <div className="space-y-2">
-                    {SAMPLE_PRODUCTS.map(p => (
-                      <button
-                        key={p.name}
-                        onClick={() => setProduct(p)}
-                        className={`w-full text-left px-3 py-2.5 rounded-xl border text-sm transition-all ${
-                          product.name === p.name
-                            ? 'border-violet-400 bg-violet-50'
-                            : 'border-slate-200 bg-white hover:border-slate-300'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium text-slate-800">{p.name}</span>
-                          {product.name === p.name && <CheckCircle className="w-4 h-4 text-violet-500" />}
+              ) : (
+                <div className="max-h-52 overflow-y-auto space-y-1.5 pr-1">
+                  {filteredDb.slice(0, 50).map(inf => {
+                    const sel = selectedInfluencers.find(x => x.id === inf.id);
+                    return (
+                      <button key={inf.id} onClick={() => toggleSelectInfluencer(inf)}
+                        className={`w-full text-left px-3 py-2 rounded-lg border text-sm transition-colors flex items-center gap-2
+                          ${sel ? 'bg-violet-50 border-violet-300' : 'bg-white border-slate-100 hover:border-slate-300'}`}>
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${sel ? 'bg-violet-600 border-violet-600' : 'border-slate-300'}`}>
+                          {sel && <CheckCircle className="w-3 h-3 text-white" />}
                         </div>
-                        <div className="flex gap-3 mt-0.5">
-                          <span className="text-xs text-slate-500">${p.price}</span>
-                          <span className="text-xs text-violet-600 font-mono">{p.code}</span>
-                          <span className="text-xs text-emerald-600">{p.commission}% commission</span>
-                        </div>
+                        <span className="font-medium text-slate-800">@{inf.platform_username}</span>
+                        <span className="text-xs">{inf.platform === 'tiktok' ? '🎵' : '📸'}</span>
+                        <span className="text-xs text-slate-400 capitalize">{inf.niche}</span>
+                        <span className="ml-auto text-xs text-slate-400">{inf.follower_count?.toLocaleString()}</span>
                       </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <input
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
-                      placeholder="Product name"
-                      value={customProduct.name}
-                      onChange={e => setCustomProduct(p => ({ ...p, name: e.target.value }))}
-                    />
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <label className="text-xs text-slate-400 mb-1 block">Price ($)</label>
-                        <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" value={customProduct.price} onChange={e => setCustomProduct(p => ({ ...p, price: e.target.value }))} />
-                      </div>
-                      <div>
-                        <label className="text-xs text-slate-400 mb-1 block">Code</label>
-                        <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" value={customProduct.code} onChange={e => setCustomProduct(p => ({ ...p, code: e.target.value.toUpperCase() }))} />
-                      </div>
-                      <div>
-                        <label className="text-xs text-slate-400 mb-1 block">Comm. %</label>
-                        <input className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" value={customProduct.commission} onChange={e => setCustomProduct(p => ({ ...p, commission: e.target.value }))} />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Button
-              onClick={runAgent}
-              disabled={running || accounts.length === 0 || !activeProduct.name}
-              className="w-full bg-violet-600 hover:bg-violet-700 text-white gap-2 h-11"
-            >
-              {running
-                ? <><RefreshCw className="w-4 h-4 animate-spin" /> Drafting pitches… ({doneCount}/{accounts.length})</>
-                : <><Sparkles className="w-4 h-4" /> Run Outreach Agent ({accounts.length} account{accounts.length !== 1 ? 's' : ''})</>}
-            </Button>
-          </div>
-
-          {/* ── RIGHT: Results ── */}
-          <div className="space-y-3">
-            {results.length === 0 && (
-              <div className="flex flex-col items-center justify-center text-center p-16 bg-white rounded-xl border border-dashed border-slate-200 h-full">
-                <Sparkles className="w-10 h-10 text-slate-300 mb-3" />
-                <p className="text-sm text-slate-500">Add handles and hit <strong>Run Outreach Agent</strong><br />to auto-draft personalised pitches for each account</p>
-              </div>
-            )}
-
-            {results.map((r, idx) => (
-              <div key={r.handle} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                {/* Row header */}
-                <div className="flex items-center gap-3 px-4 py-3">
-                  <span className={`text-xs px-2 py-0.5 rounded font-medium flex items-center gap-1 ${
-                    r.platform === "tiktok" ? "bg-black text-white" : "bg-gradient-to-r from-purple-500 to-pink-500 text-white"
-                  }`}>
-                    {r.platform === "tiktok" ? <TikTokIcon /> : <Instagram className="w-3 h-3" />}
-                  </span>
-                  <span className="font-semibold text-sm text-slate-800 flex-1">@{r.handle}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_COLORS[r.status]}`}>
-                    {r.status === "generating" ? <span className="flex items-center gap-1"><RefreshCw className="w-3 h-3 animate-spin" /> Writing…</span> : r.status}
-                  </span>
-                  {r.status === "done" && (
-                    <button onClick={() => toggleExpand(idx)} className="text-slate-400 hover:text-slate-600">
-                      {r.expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                    </button>
-                  )}
+                    );
+                  })}
+                  {filteredDb.length === 0 && <p className="text-xs text-slate-400 text-center py-4">No influencers found</p>}
                 </div>
-                {/* Send status */}
-                {r.emailSearching && (
-                  <div className="px-4 pb-2 text-xs text-violet-600 flex items-center gap-1">
-                    <RefreshCw className="w-3 h-3 animate-spin" /> Searching for public email…
-                  </div>
-                )}
-                {r.discoveredEmail && !r.sending && !r.sent && (
-                  <div className="px-4 pb-2 text-xs text-blue-600 flex items-center gap-1">
-                    📧 Found: {r.discoveredEmail}{r.emailSource ? ` via ${r.emailSource}` : ''}{r.emailMethod ? ` [${r.emailMethod}]` : ''}
-                  </div>
-                )}
-                {!r.emailSearching && r.status === 'done' && !r.discoveredEmail && (
-                  <div className="px-4 pb-2 text-xs text-amber-600">⚠️ No public email found — use Copy & Open to DM manually</div>
-                )}
-                {r.sending && (
-                  <div className="px-4 pb-2 text-xs text-amber-600 flex items-center gap-1">
-                    <RefreshCw className="w-3 h-3 animate-spin" /> Sending email…
-                  </div>
-                )}
-                {r.sent && (
-                  <div className="px-4 pb-2 text-xs text-emerald-600 flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3" /> Email sent to {r.discoveredEmail}
-                  </div>
-                )}
-                {r.sendError && (
-                  <div className="px-4 pb-2 text-xs text-red-500">Send failed: {r.sendError}</div>
-                )}
+              )}
+              {selectedInfluencers.length > 0 && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-violet-600 font-semibold">{selectedInfluencers.length} selected</span>
+                  <button onClick={() => setSelectedInfluencers([])} className="text-slate-400 hover:text-red-400">Clear</button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-                {/* Fit score bar */}
-                {r.pitch && (
-                  <div className="px-4 pb-1">
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${r.pitch.fit_score >= 7 ? 'bg-emerald-400' : r.pitch.fit_score >= 4 ? 'bg-amber-400' : 'bg-red-400'}`}
-                          style={{ width: `${r.pitch.fit_score * 10}%` }}
-                        />
-                      </div>
-                      <span className={`text-xs font-bold ${r.pitch.fit_score >= 7 ? 'text-emerald-600' : r.pitch.fit_score >= 4 ? 'text-amber-600' : 'text-red-500'}`}>
-                        {r.pitch.fit_score}/10
-                      </span>
-                      <span className="text-xs text-slate-400">{r.pitch.fit_reason}</span>
+          {/* Product */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-slate-800">Product Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <input value={productName} onChange={e => setProductName(e.target.value)} placeholder="Product name"
+                className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" />
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-xs text-slate-400 mb-1 block">Price ($)</label>
+                  <input value={productPrice} onChange={e => setProductPrice(e.target.value)}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400 mb-1 block">Discount Code</label>
+                  <input value={discountCode} onChange={e => setDiscountCode(e.target.value.toUpperCase())}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400 mb-1 block">Commission %</label>
+                  <input value={commission} onChange={e => setCommission(e.target.value)}
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Pitch Style */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold text-slate-800">Pitch Style</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {PITCH_STYLES.map(s => (
+                <button key={s.id} onClick={() => setPitchStyle(s.id)}
+                  className={`w-full text-left px-3 py-2.5 rounded-xl border transition-colors
+                    ${pitchStyle === s.id ? 'border-violet-400 bg-violet-50' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-slate-800">{s.label}</span>
+                    {pitchStyle === s.id && <CheckCircle className="w-4 h-4 text-violet-500" />}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">{s.desc}</p>
+                </button>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Button onClick={runAgent} disabled={running || !selectedInfluencers.length || !productName}
+            className="w-full bg-violet-600 hover:bg-violet-700 text-white gap-2 h-11">
+            {running
+              ? <><RefreshCw className="w-4 h-4 animate-spin" />Drafting pitches… ({doneCount}/{selectedInfluencers.length})</>
+              : <><Sparkles className="w-4 h-4" />Generate {selectedInfluencers.length} Pitch{selectedInfluencers.length !== 1 ? 'es' : ''}</>}
+          </Button>
+        </div>
+
+        {/* RIGHT: Results */}
+        <div className="space-y-3">
+          {results.length === 0 && (
+            <div className="flex flex-col items-center justify-center text-center p-16 bg-white rounded-xl border border-dashed border-slate-200">
+              <Sparkles className="w-10 h-10 text-slate-300 mb-3" />
+              <p className="text-sm text-slate-500">Pick influencers, choose a pitch style,<br />then hit <strong>Generate Pitches</strong></p>
+            </div>
+          )}
+
+          {results.map((r, idx) => (
+            <div key={r.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+              <div className="flex items-center gap-3 px-4 py-3">
+                <span className={`text-xs px-2 py-0.5 rounded font-medium flex items-center gap-1 ${r.platform === "tiktok" ? "bg-black text-white" : "bg-gradient-to-r from-purple-500 to-pink-500 text-white"}`}>
+                  {r.platform === "tiktok" ? <TikTokIcon /> : <Instagram className="w-3 h-3" />}
+                </span>
+                <span className="font-semibold text-sm text-slate-800 flex-1">@{r.platform_username}</span>
+                {r.status === "generating" && <span className="text-xs text-amber-600 flex items-center gap-1"><RefreshCw className="w-3 h-3 animate-spin" /> Writing…</span>}
+                {r.status === "done" && <span className="text-xs text-emerald-600 font-medium">Done</span>}
+                {r.status === "done" && (
+                  <button onClick={() => setResults(prev => prev.map((x, i) => i === idx ? { ...x, expanded: !x.expanded } : x))} className="text-slate-400 hover:text-slate-600">
+                    {r.expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+                )}
+              </div>
+
+              {r.pitch && r.expanded && (
+                <div className="px-4 pb-4 space-y-3 border-t border-slate-100 pt-3">
+                  {/* Fit score */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full ${r.pitch.fit_score >= 7 ? 'bg-emerald-400' : r.pitch.fit_score >= 4 ? 'bg-amber-400' : 'bg-red-400'}`}
+                        style={{ width: `${r.pitch.fit_score * 10}%` }} />
+                    </div>
+                    <span className={`text-xs font-bold ${r.pitch.fit_score >= 7 ? 'text-emerald-600' : r.pitch.fit_score >= 4 ? 'text-amber-600' : 'text-red-500'}`}>
+                      {r.pitch.fit_score}/10
+                    </span>
+                    <span className="text-xs text-slate-400 flex-1 truncate">{r.pitch.fit_reason}</span>
+                  </div>
+
+                  {/* Preview bubble */}
+                  <div className="bg-slate-900 rounded-xl px-3 py-2.5 flex items-start gap-2">
+                    <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center shrink-0 mt-0.5">
+                      {r.platform === "tiktok" ? <TikTokIcon /> : <Instagram className="w-3 h-3 text-white" />}
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-white">New message</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{r.pitch.dm_preview}</p>
                     </div>
                   </div>
-                )}
 
-                {/* Expanded pitch */}
-                {r.expanded && r.pitch && (
-                  <div className="px-4 pb-4 space-y-3 border-t border-slate-100 mt-2 pt-3">
-                    {/* Notification preview */}
-                    <div className="bg-slate-900 rounded-xl px-3 py-2.5 flex items-start gap-2">
-                      <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center shrink-0 mt-0.5">
-                        {r.platform === "tiktok" ? <TikTokIcon /> : <Instagram className="w-3 h-3 text-white" />}
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-white">New message</p>
-                        <p className="text-xs text-slate-400 mt-0.5">{r.pitch.dm_preview}</p>
+                  {/* Editable pitch */}
+                  {editingIdx === idx ? (
+                    <div className="space-y-2">
+                      <textarea rows={8} value={editText} onChange={e => setEditText(e.target.value)}
+                        className="w-full border border-violet-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300 resize-none" />
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={() => saveEdit(idx)} className="gap-1.5 bg-violet-600 hover:bg-violet-700 text-white flex-1">
+                          <CheckCircle className="w-3.5 h-3.5" /> Save Edit
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setEditingIdx(null)}>Cancel</Button>
                       </div>
                     </div>
-
-                    {/* Full DM */}
+                  ) : (
                     <div className="bg-slate-50 rounded-xl px-4 py-3">
                       <p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">{r.pitch.dm_text}</p>
                     </div>
+                  )}
 
-                    <div className="flex gap-2 flex-wrap">
-                      {/* Copy & Open — one click to send */}
-                      <Button
-                        size="sm"
-                        className="gap-1.5 flex-1 bg-black hover:bg-slate-800 text-white"
-                        onClick={() => {
-                          navigator.clipboard.writeText(r.pitch.dm_text);
-                          const url = r.platform === "tiktok"
-                            ? `https://www.tiktok.com/@${r.handle}`
-                            : `https://www.instagram.com/${r.handle}/`;
-                          window.open(url, "_blank");
-                          setResults(prev => prev.map((x, i) => i === idx ? { ...x, copied: true } : x));
-                          setTimeout(() => setResults(prev => prev.map((x, i) => i === idx ? { ...x, copied: false } : x)), 3000);
-                        }}
-                      >
-                        {r.platform === "tiktok" ? <TikTokIcon /> : <Instagram className="w-3.5 h-3.5" />}
-                        {r.copied ? "Copied! Paste in DM ↗" : `Copy & Open ${r.platform === "tiktok" ? "TikTok" : "Instagram"} ↗`}
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => copyPitch(idx)} className="gap-1.5">
-                        <Copy className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                    {r.copied && (
-                      <p className="text-xs text-emerald-600 font-medium mt-1">✅ DM copied to clipboard — just paste it into the chat and hit send!</p>
-                    )}
-                    <div className="text-xs text-slate-400 flex items-center px-3 py-2 bg-slate-50 rounded-lg border border-slate-200 font-mono">
-                      📧 {r.pitch.subject_line}
-                    </div>
+                  <p className="text-xs text-slate-400 font-mono px-3 py-2 bg-slate-50 rounded-lg border border-slate-200">📧 {r.pitch.subject_line}</p>
+
+                  <div className="flex gap-2 flex-wrap">
+                    <Button size="sm" variant="outline" onClick={() => startEdit(idx)} className="gap-1.5 flex-1">
+                      <Edit3 className="w-3.5 h-3.5" /> Edit
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(r.pitch.dm_text); }} className="gap-1.5">
+                      <Copy className="w-3.5 h-3.5" /> Copy
+                    </Button>
+                    <Button size="sm"
+                      onClick={() => saveAsTemplate(idx)}
+                      disabled={savingIdx === idx}
+                      className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white flex-1">
+                      {savingIdx === idx ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                      Save as Template
+                    </Button>
                   </div>
-                )}
-              </div>
-            ))}
-
-            {doneCount > 0 && doneCount === results.length && (
-              <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 text-sm text-emerald-800 font-medium text-center">
-                ✅ {doneCount} pitch{doneCount !== 1 ? 'es' : ''} ready — copy each DM and send manually, or we'll automate delivery once validated.
-              </div>
-            )}
-          </div>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
+
+      {/* Saved Templates */}
+      {savedTemplates.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Star className="w-4 h-4 text-amber-500" />
+            <h3 className="font-bold text-slate-800">Saved Pitch Templates</h3>
+            <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{savedTemplates.length} saved</span>
+            <p className="text-xs text-slate-400 ml-auto">These appear in Bulk Email Blast for use in campaigns</p>
+          </div>
+          <div className="space-y-3">
+            {savedTemplates.map(t => (
+              <div key={t.id} className="flex items-start gap-3 bg-slate-50 rounded-xl p-4 border border-slate-100">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <span className="font-semibold text-sm text-slate-800">{t.template_name}</span>
+                    {t.pitch_style && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 capitalize">
+                        {PITCH_STYLES.find(s => s.id === t.pitch_style)?.label || t.pitch_style}
+                      </span>
+                    )}
+                    {t.fit_score && (
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${t.fit_score >= 7 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                        {t.fit_score}/10
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 line-clamp-2">{t.dm_text}</p>
+                </div>
+                <button onClick={() => deleteTemplate(t.id)} className="text-slate-300 hover:text-red-400 shrink-0">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

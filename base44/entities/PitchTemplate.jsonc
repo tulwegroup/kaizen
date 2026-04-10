@@ -1,0 +1,49 @@
+{
+  "name": "PitchTemplate",
+  "type": "object",
+  "properties": {
+    "template_name": {
+      "type": "string",
+      "description": "Friendly name e.g. 'Friendly Casual \u2014 Beauty'"
+    },
+    "pitch_style": {
+      "type": "string",
+      "enum": [
+        "friendly_casual",
+        "professional",
+        "bold_fomo",
+        "story_driven",
+        "short_punchy"
+      ],
+      "description": "Style used to generate this pitch"
+    },
+    "subject_line": {
+      "type": "string"
+    },
+    "dm_text": {
+      "type": "string",
+      "description": "The approved pitch body"
+    },
+    "product_name": {
+      "type": "string"
+    },
+    "platform": {
+      "type": "string",
+      "enum": [
+        "tiktok",
+        "instagram",
+        "both"
+      ]
+    },
+    "fit_score": {
+      "type": "number"
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "template_name",
+    "dm_text"
+  ]
+}

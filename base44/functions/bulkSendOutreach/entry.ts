@@ -20,6 +20,8 @@ Deno.serve(async (req) => {
     brand_name = 'Our Store',
     sender_name = 'The Partnerships Team',
     custom_message = '',
+    pitch_template = null,
+    pitch_subject = null,
   } = await req.json();
 
   if (!influencer_ids?.length || !product_name) {
@@ -53,7 +55,10 @@ Deno.serve(async (req) => {
     const discountCode = `${handle.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8)}${follower_discount_pct}`;
     const commissionAmount = commission_pct;
 
-    const personalizedBody = `
+    // If a saved pitch template is provided, use it (replacing the handle placeholder)
+    const personalizedBody = pitch_template
+      ? pitch_template.replace(/@\w+/g, `@${handle}`).replace(/\[handle\]/gi, `@${handle}`)
+      : `
 Hi @${handle}! 👋
 
 ${platformEmoji} We've been following your ${niche} content on ${platform} — your audience engagement is genuinely impressive${followerCount ? ` (${followerCount} followers!)` : ''}, and we think you'd be a perfect fit for what we're building.
@@ -104,7 +109,7 @@ ${brand_name} Partnerships
     try {
       await base44.integrations.Core.SendEmail({
         to: email,
-        subject: `${platformEmoji} Partnership opportunity for @${handle} — ${commissionAmount}% commission + ${follower_discount_pct}% for your followers`,
+        subject: pitch_subject || `${platformEmoji} Partnership opportunity for @${handle} — ${commissionAmount}% commission + ${follower_discount_pct}% for your followers`,
         body: htmlBody,
         from_name: `${brand_name} Partnerships`,
       });
