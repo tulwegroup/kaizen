@@ -3,7 +3,7 @@ import { base44 } from "@/api/base44Client";
 import { Send, RefreshCw, Filter, Check, X, ChevronDown, Mail, Users, Zap, ShoppingBag, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const NICHES = ["all", "fashion", "beauty", "lifestyle", "tech", "fitness", "home", "pet", "baby", "gaming", "outdoor", "kitchen", "wellness", "viral", "digital"];
+const NICHES = ["all", "fashion", "beauty", "lifestyle", "tech", "fitness", "home", "digital", "viral", "wellness", "gaming", "pet", "baby", "outdoor", "kitchen", "auto"];
 const PLATFORMS = [{ v: "all", l: "All" }, { v: "instagram", l: "📸 Instagram" }, { v: "tiktok", l: "🎵 TikTok" }];
 
 export default function BulkSendPanel() {

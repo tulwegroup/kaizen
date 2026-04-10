@@ -3,8 +3,23 @@ import { base44 } from "@/api/base44Client";
 import { Sparkles, RefreshCw, Check, Users, Instagram, Music } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const NICHES = ["fashion", "beauty", "lifestyle", "tech", "fitness", "home", "pet", "baby", "gaming", "outdoor", "kitchen", "wellness", "viral", "digital"];
-const REGIONS = ["USA", "UK", "UAE", "Australia", "Canada", "Germany", "France", "Netherlands", "Saudi Arabia", "Egypt", "Pakistan", "India", "South Africa", "Nigeria", "Mexico", "Brazil", "Singapore", "Malaysia", "Philippines"];
+const NICHES = ["fashion", "beauty", "lifestyle", "tech", "fitness", "home", "digital", "viral", "wellness", "gaming", "pet", "baby", "outdoor", "kitchen", "auto"];
+const REGIONS = [
+  // Middle East
+  "UAE", "Saudi Arabia", "Egypt", "Qatar", "Kuwait", "Bahrain", "Oman", "Jordan", "Lebanon", "Iraq",
+  // Europe
+  "United Kingdom", "Germany", "France", "Italy", "Spain", "Netherlands", "Sweden", "Poland", "Portugal", "Belgium", "Switzerland", "Austria", "Denmark", "Norway", "Finland", "Greece", "Czech Republic", "Romania", "Hungary", "Ireland",
+  // Americas
+  "United States", "Canada", "Brazil", "Mexico", "Argentina", "Colombia", "Chile", "Peru",
+  // Asia Pacific
+  "India", "China", "Japan", "South Korea", "Australia", "New Zealand", "Singapore", "Malaysia", "Indonesia", "Thailand", "Philippines", "Vietnam", "Taiwan", "Hong Kong",
+  // South Asia
+  "Pakistan", "Bangladesh", "Sri Lanka",
+  // Africa
+  "South Africa", "Nigeria", "Kenya", "Ghana", "Morocco", "Ethiopia",
+  // Other
+  "Turkey", "Russia", "Israel",
+];
 const COUNTS = [25, 50, 100, 500, 1000];
 
 export default function GenerateInfluencers() {

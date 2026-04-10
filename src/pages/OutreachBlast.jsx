@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button";
 import GenerateInfluencers from "@/components/outreach/GenerateInfluencers";
 import BulkSendPanel from "@/components/outreach/BulkSendPanel";
 import ResearchValidator from "@/components/outreach/ResearchValidator";
+import OutreachTester from "@/pages/OutreachTester";
 
 const TABS = [
   { id: "generate", label: "Generate Database", icon: Sparkles, color: "text-violet-600" },
   { id: "blast", label: "Bulk Email Blast", icon: Send, color: "text-blue-600" },
+  { id: "tester", label: "Outreach Tester", icon: Zap, color: "text-amber-600" },
   { id: "validate", label: "Validate Research", icon: ShieldCheck, color: "text-emerald-600" },
 ];
 
@@ -49,6 +51,7 @@ export default function OutreachBlast() {
       <div className="max-w-5xl mx-auto p-6">
         {tab === "generate" && <GenerateInfluencers />}
         {tab === "blast" && <BulkSendPanel />}
+        {tab === "tester" && <OutreachTester />}
         {tab === "validate" && <ResearchValidator />}
       </div>
     </div>
