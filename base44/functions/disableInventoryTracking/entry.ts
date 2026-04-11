@@ -9,8 +9,6 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return Response.json({ error: 'POST only' }, { status: 405 });
 
   const base44 = createClientFromRequest(req);
-  const user = await base44.auth.me();
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
   // Get Shopify session
   const sessions = await base44.asServiceRole.entities.ShopifySession.list('-created_date', 1);
