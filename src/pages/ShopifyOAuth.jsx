@@ -418,7 +418,7 @@ export default function ShopifyOAuth() {
             {imagesResult && (
               <div className={`rounded-xl px-4 py-3 mb-4 text-sm ${imagesResult.success ? 'bg-purple-50 text-purple-800 border border-purple-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
                 {imagesResult.success
-                  ? `✅ ${imagesResult.fixed} fixed · ${imagesResult.skipped} already had images · ${imagesResult.failed} failed`
+                  ? `✅ ${imagesResult.fixed} fixed · ${imagesResult.failed} failed${imagesResult.remaining > 0 ? ` · ${imagesResult.remaining} more remaining` : ' · All done!'}`
                   : JSON.stringify(imagesResult)}
               </div>
             )}
