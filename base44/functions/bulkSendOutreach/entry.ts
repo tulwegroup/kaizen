@@ -6,6 +6,9 @@
  */
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
+const FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') || `partnerships@${Deno.env.get('SHOPIFY_STORE_DOMAIN') || 'store.com'}`;
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return Response.json({ error: 'POST only' }, { status: 405 });
 
@@ -107,12 +110,21 @@ ${brand_name} Partnerships
 </div>`;
 
     try {
-      await base44.integrations.Core.SendEmail({
-        to: email,
+      const resendPayload = {
+        from: `${brand_name} Partnerships <${FROM_EMAIL}>`,
+        to: [email],
         subject: pitch_subject || `${platformEmoji} Partnership opportunity for @${handle} — ${commissionAmount}% commission + ${follower_discount_pct}% for your followers`,
-        body: htmlBody,
-        from_name: `${brand_name} Partnerships`,
+        html: htmlBody,
+      };
+      const resendResp = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(resendPayload),
       });
+      if (!resendResp.ok) {
+        const errData = await resendResp.json();
+        throw new Error(errData.message || 'Resend failed');
+      }
 
       // Save campaign record
       try {

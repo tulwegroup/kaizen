@@ -13,6 +13,10 @@ export default function ShopifyOAuth() {
   const [result, setResult] = useState(null);
   const [publishing, setPublishing] = useState(false);
   const [publishResult, setPublishResult] = useState(null);
+  const [fixingImages, setFixingImages] = useState(false);
+  const [imagesResult, setImagesResult] = useState(null);
+  const [disablingInventory, setDisablingInventory] = useState(false);
+  const [inventoryResult, setInventoryResult] = useState(null);
   const [storefrontPublishing, setStorefrontPublishing] = useState(false);
   const [storefrontResult, setStorefrontResult] = useState(null);
   const [copied, setCopied] = useState(false);
@@ -107,6 +111,22 @@ export default function ShopifyOAuth() {
     const res = await base44.functions.invoke('populateCollections', {});
     setPopulateResult(res.data);
     setPopulating(false);
+  };
+
+  const fixImages = async () => {
+    setFixingImages(true);
+    setImagesResult(null);
+    const res = await base44.functions.invoke('fixProductImages', {});
+    setImagesResult(res.data);
+    setFixingImages(false);
+  };
+
+  const disableInventory = async () => {
+    setDisablingInventory(true);
+    setInventoryResult(null);
+    const res = await base44.functions.invoke('disableInventoryTracking', {});
+    setInventoryResult(res.data);
+    setDisablingInventory(false);
   };
 
   const publishToStorefront = async () => {
@@ -380,6 +400,54 @@ export default function ShopifyOAuth() {
               style={{ background: creatingPages ? undefined : '#7c3aed' }}
             >
               {creatingPages ? <><RefreshCw className="w-4 h-4 animate-spin" />Creating pages…</> : <><Zap className="w-4 h-4" />Create All Store Pages</>}
+            </Button>
+          </div>
+
+          {/* Fix Product Images */}
+          <div className="bg-white rounded-2xl border border-purple-200 shadow-sm p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
+                <Package className="w-5 h-5 text-purple-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-slate-900">Fix Product Images</h3>
+                <p className="text-xs text-slate-500">Replace placeholder images with real AI-fetched product images</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-600 mb-4">Scans all Shopify products for missing or placeholder images, then uses AI web search to find and upload real product photos.</p>
+            {imagesResult && (
+              <div className={`rounded-xl px-4 py-3 mb-4 text-sm ${imagesResult.success ? 'bg-purple-50 text-purple-800 border border-purple-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
+                {imagesResult.success
+                  ? `✅ ${imagesResult.fixed} fixed · ${imagesResult.skipped} already had images · ${imagesResult.failed} failed`
+                  : JSON.stringify(imagesResult)}
+              </div>
+            )}
+            <Button onClick={fixImages} disabled={fixingImages} className="w-full gap-2 bg-purple-600 hover:bg-purple-700 text-white">
+              {fixingImages ? <><RefreshCw className="w-4 h-4 animate-spin" />Finding real images…</> : <><Package className="w-4 h-4" />Fix All Product Images</>}
+            </Button>
+          </div>
+
+          {/* Disable Inventory Tracking */}
+          <div className="bg-white rounded-2xl border border-teal-200 shadow-sm p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-teal-100 flex items-center justify-center">
+                <ShoppingCart className="w-5 h-5 text-teal-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-slate-900">Fix "Sold Out" Products</h3>
+                <p className="text-xs text-slate-500">Disable inventory tracking so products always show as available</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-600 mb-4">Sets all product variants to <strong>"Continue selling when out of stock"</strong> and disables inventory tracking — ideal for dropshipping where CJ fulfills the order regardless.</p>
+            {inventoryResult && (
+              <div className={`rounded-xl px-4 py-3 mb-4 text-sm ${inventoryResult.success ? 'bg-teal-50 text-teal-800 border border-teal-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
+                {inventoryResult.success
+                  ? `✅ ${inventoryResult.variants_fixed} variants fixed across ${inventoryResult.products_processed} products`
+                  : JSON.stringify(inventoryResult)}
+              </div>
+            )}
+            <Button onClick={disableInventory} disabled={disablingInventory} className="w-full gap-2 bg-teal-600 hover:bg-teal-700 text-white">
+              {disablingInventory ? <><RefreshCw className="w-4 h-4 animate-spin" />Updating variants…</> : <><ShoppingCart className="w-4 h-4" />Fix Sold Out Products</>}
             </Button>
           </div>
 

@@ -1,5 +1,8 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.23';
 
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
+const FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') || `partnerships@${Deno.env.get('SHOPIFY_STORE_DOMAIN') || 'store.com'}`;
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return Response.json({ error: 'POST only' }, { status: 405 });
 
@@ -7,7 +10,7 @@ Deno.serve(async (req) => {
   const user = await base44.auth.me();
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { to_email, handle, platform, subject, dm_text, product_name } = await req.json();
+  const { to_email, handle, platform, subject, dm_text, product_name, from_name } = await req.json();
 
   if (!to_email || !dm_text) return Response.json({ error: 'to_email and dm_text required' }, { status: 400 });
 
@@ -28,11 +31,24 @@ ${dm_text}
     </div>
   `;
 
-  await base44.integrations.Core.SendEmail({
-    to: to_email,
-    subject: subject || `Partnership opportunity — ${product_name}`,
-    body: htmlBody,
+  const resendRes = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: `${from_name || 'Partnerships Team'} <${FROM_EMAIL}>`,
+      to: [to_email],
+      subject: subject || `Partnership opportunity — ${product_name}`,
+      html: htmlBody,
+    }),
   });
+
+  if (!resendRes.ok) {
+    const err = await resendRes.json();
+    return Response.json({ error: 'Email send failed', details: err }, { status: 500 });
+  }
 
   return Response.json({ success: true, sent_to: to_email });
 });
