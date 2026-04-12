@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
   const monthYear = today.slice(0, 7);
 
   const [productResearch, influencerResearch] = await Promise.all([
-    base44.integrations.Core.InvokeLLM({
+    base44.asServiceRole.integrations.Core.InvokeLLM({
       model: 'gemini_3_flash',
       prompt: `E-commerce analyst. Date: ${today}. Regions: ${regionsStr}. Niches: ${nichesStr}.
 
@@ -64,7 +64,7 @@ Return these fields for each: product_name, product_type (physical/digital), nic
       }
     }),
 
-    base44.integrations.Core.InvokeLLM({
+    base44.asServiceRole.integrations.Core.InvokeLLM({
       model: 'gemini_3_flash',
       prompt: `Influencer marketing expert. Regions: ${regionsStr}. Niches: ${nichesStr}. List 5 recommended influencer types and 3 regional strategies.`,
       response_json_schema: {

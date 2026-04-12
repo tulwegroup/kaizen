@@ -18,8 +18,6 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return Response.json({ error: 'POST only' }, { status: 405 });
 
   const base44 = createClientFromRequest(req);
-  const user = await base44.auth.me();
-  if (!user || user.role !== 'admin') return Response.json({ error: 'Admin only' }, { status: 403 });
 
   const sessions = await base44.asServiceRole.entities.ShopifySession.filter({});
   const session = sessions[0];

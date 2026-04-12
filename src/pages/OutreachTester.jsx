@@ -45,7 +45,7 @@ export default function OutreachTester() {
   const [commission, setCommission] = useState("20");
 
   // Pitch style
-  const [pitchStyle, setPitchStyle] = useState("friendly_casual");
+  const [pitchStyle, setPitchStyle] = useState("short_punchy");
 
   // Results
   const [running, setRunning] = useState(false);

@@ -15,8 +15,6 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return Response.json({ error: 'POST only' }, { status: 405 });
 
   const base44 = createClientFromRequest(req);
-  const user = await base44.auth.me();
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { product } = await req.json();
   if (!product?.product_name) return Response.json({ error: 'product required' }, { status: 400 });
@@ -25,7 +23,7 @@ Deno.serve(async (req) => {
 
   // Run enrichment + image search in parallel
   const [enriched, imageResult] = await Promise.all([
-    base44.integrations.Core.InvokeLLM({
+    base44.asServiceRole.integrations.Core.InvokeLLM({
       model: 'claude_sonnet_4_6',
       prompt: `You are an expert Shopify e-commerce copywriter and product manager. Your job is to turn raw product research data into a fully optimized, conversion-ready Shopify product listing.
 
@@ -75,7 +73,7 @@ Be conversion-focused. Write for impulse buyers. Keep it human, exciting, and tr
       }
     }),
 
-    base44.integrations.Core.InvokeLLM({
+    base44.asServiceRole.integrations.Core.InvokeLLM({
       model: 'gemini_3_flash',
       add_context_from_internet: true,
       prompt: `Find a real product image URL for: "${product.product_name}"

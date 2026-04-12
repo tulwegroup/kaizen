@@ -36,8 +36,6 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return Response.json({ error: 'POST only' }, { status: 405 });
 
   const base44 = createClientFromRequest(req);
-  const user = await base44.auth.me();
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
   const shopDomain = Deno.env.get('SHOPIFY_STORE_DOMAIN');
   const sessions = await base44.asServiceRole.entities.ShopifySession.filter({ shop_domain: shopDomain });

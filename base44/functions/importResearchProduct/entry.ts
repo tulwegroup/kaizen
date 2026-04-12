@@ -43,8 +43,6 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return Response.json({ error: 'POST only' }, { status: 405 });
 
   const base44 = createClientFromRequest(req);
-  const user = await base44.auth.me();
-  if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { product } = await req.json();
   if (!product?.product_name) return Response.json({ error: 'product.product_name required' }, { status: 400 });
@@ -74,7 +72,7 @@ Deno.serve(async (req) => {
   }
 
   // Phase 1: Enrich via LLM + internet
-  const enriched = await base44.integrations.Core.InvokeLLM({
+  const enriched = await base44.asServiceRole.integrations.Core.InvokeLLM({
     prompt: `You are a product listing specialist for a dropshipping store.
 
 Research the product "${product.product_name}" (niche: ${product.niche}, region: ${product.region || 'global'}).

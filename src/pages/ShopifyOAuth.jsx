@@ -504,6 +504,34 @@ export default function ShopifyOAuth() {
             </Link>
           </div>
 
+          {/* Payment Methods */}
+          <div className="bg-white rounded-2xl border border-yellow-200 shadow-sm p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-yellow-100 flex items-center justify-center">
+                <ShoppingCart className="w-5 h-5 text-yellow-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-slate-900">Enable Card &amp; All Payments</h3>
+                <p className="text-xs text-slate-500">Shopify Payments — credit card, Apple Pay, Google Pay</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-600 mb-3">Your checkout currently only shows PayPal. To enable credit/debit cards, Apple Pay, Google Pay and more, you need to activate <strong>Shopify Payments</strong> in your store settings.</p>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 mb-4 text-xs text-yellow-800 space-y-1">
+              <p className="font-bold">Steps to enable all payment methods:</p>
+              <ol className="list-decimal ml-4 space-y-0.5 mt-1">
+                <li>Go to <strong>Settings → Payments</strong> in Shopify Admin</li>
+                <li>Click <strong>"Activate Shopify Payments"</strong> (free, no transaction fees)</li>
+                <li>Complete the account setup (takes ~2 min)</li>
+                <li>Card, Apple Pay, Google Pay will appear automatically at checkout</li>
+              </ol>
+            </div>
+            <a href={`https://${shopDomain}/admin/settings/payments`} target="_blank" rel="noreferrer">
+              <Button className="w-full gap-2 bg-yellow-500 hover:bg-yellow-600 text-white">
+                <ShoppingCart className="w-4 h-4" /> Open Payment Settings <ExternalLink className="w-3.5 h-3.5" />
+              </Button>
+            </a>
+          </div>
+
           {/* Quick links */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
             <div className="flex items-center gap-3 mb-4">

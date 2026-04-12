@@ -20,7 +20,7 @@ Deno.serve(async (req) => {
   const perPlatform = Math.ceil(batchCount / platforms.length);
 
   const results = await Promise.all(platforms.map(async (pl) => {
-    const generated = await base44.integrations.Core.InvokeLLM({
+    const generated = await base44.asServiceRole.integrations.Core.InvokeLLM({
       model: 'gemini_3_flash',
       prompt: `Generate ${perPlatform} NEW realistic ${pl} micro-influencer profiles for e-commerce outreach.
 Niches: ${nichesStr}. Regions: ${regionsStr}.

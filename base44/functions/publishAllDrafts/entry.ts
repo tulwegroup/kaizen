@@ -19,8 +19,6 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return Response.json({ error: 'POST only' }, { status: 405 });
 
   const base44 = createClientFromRequest(req);
-  const user = await base44.auth.me();
-  if (!user || user.role !== 'admin') return Response.json({ error: 'Admin only' }, { status: 403 });
 
   const shopDomain = Deno.env.get('SHOPIFY_STORE_DOMAIN');
   if (!shopDomain) return Response.json({ error: 'SHOPIFY_STORE_DOMAIN not set' }, { status: 500 });
