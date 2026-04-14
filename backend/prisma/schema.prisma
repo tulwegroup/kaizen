@@ -1,0 +1,214 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// ── Users (replaces Base44 auth) ──────────────────────────────────────
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String?  // bcrypt hash; null for OAuth-only users
+  name      String?
+  role      String   @default("user") // "admin" | "user"
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+// ── Base44 entities (defined in base44/entities/*.jsonc) ──────────────
+
+model ImportJob {
+  id              String   @id @default(cuid())
+  title           String
+  source          String   // "research_agent" | "manual" | "pipeline"
+  status          String   @default("draft") // "draft"|"enriching"|"importing"|"partially_done"|"done"
+  regions         String?  // JSON array
+  niches          String?  // JSON array
+  period          String?
+  productsRaw     String?  @map("products_raw") // JSON string
+  enrichedMap     String?  @map("enriched_map") // JSON string
+  selectedIndices String?  @map("selected_indices") // JSON string
+  importedCount   Int      @default(0) @map("imported_count")
+  totalCount      Int      @default(0) @map("total_count")
+  notes           String? 
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("import_jobs")
+}
+
+model InfluencerProfile {
+  id               String   @id @default(cuid())
+  platform         String   // "tiktok" | "instagram" | "youtube"
+  platformUsername String   @map("platform_username")
+  platformUserId   String   @map("platform_user_id")
+  followerCount    Int?     @map("follower_count")
+  engagementRate   Float?   @map("engagement_rate")
+  engagementScore  Int?     @map("engagement_score")
+  niche            String?
+  status           String   @default("discovered") // "discovered"|"contacted"|"accepted"|"active"|"inactive"
+  contactEmail     String?  @map("contact_email")
+  contactInstagram String?  @map("contact_instagram")
+  discountCode     String?  @map("discount_code")
+  referralLink     String?  @map("referral_link")
+  metadata         String?   // JSON object
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  campaigns    InfluencerCampaign[]
+  conversions  InfluencerConversion[]
+
+  @@map("influencer_profiles")
+}
+
+model InfluencerCampaign {
+  id              String   @id @default(cuid())
+  campaignName    String   @map("campaign_name")
+  influencerId    String   @map("influencer_id")
+  status          String   @default("draft") // "draft"|"outreach_sent"|"accepted"|"active"|"completed"|"declined"
+  discountCode    String?  @map("discount_code")
+  commissionRate  Float?   @map("commission_rate")
+  commissionType  String   @default("percentage") // "percentage"|"flat"|"per_sale"
+  startDate       DateTime? @map("start_date")
+  endDate         DateTime? @map("end_date")
+  messageSent     String?  @map("message_sent")
+  metadata         String?   // JSON object
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  influencer   InfluencerProfile @relation(fields: [influencerId], references: [id])
+  conversions  InfluencerConversion[]
+
+  @@map("influencer_campaigns")
+}
+
+model InfluencerConversion {
+  id                String    @id @default(cuid())
+  influencerId      String    @map("influencer_id")
+  campaignId        String?   @map("campaign_id")
+  shopifyOrderId    String    @map("shopify_order_id")
+  discountCodeUsed  String?   @map("discount_code_used")
+  conversionValue   Float?    @map("conversion_value")
+  commissionEarned  Float?    @map("commission_earned")
+  conversionDate    DateTime? @map("conversion_date")
+  metadata         String?   // JSON object
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  influencer InfluencerProfile @relation(fields: [influencerId], references: [id])
+  campaign   InfluencerCampaign? @relation(fields: [campaignId], references: [id])
+
+  @@map("influencer_conversions")
+}
+
+model PitchTemplate {
+  id           String   @id @default(cuid())
+  templateName String   @map("template_name")
+  pitchStyle   String?  @map("pitch_style") // "friendly_casual"|"professional"|"bold_fomo"|"story_driven"|"short_punchy"
+  subjectLine  String?  @map("subject_line")
+  dmText       String   @map("dm_text")
+  productName  String?  @map("product_name")
+  platform     String?  // "tiktok"|"instagram"|"both"
+  fitScore     Int?     @map("fit_score")
+  notes        String? 
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("pitch_templates")
+}
+
+// ── Internal entities (used by backend functions, not in base44/entities/) ──
+
+model ShopifySession {
+  id          String    @id @default(cuid())
+  shopDomain  String    @unique @map("shop_domain")
+  accessToken String    @map("access_token")
+  tokenType   String    @default("Bearer") @map("token_type")
+  expiresAt   DateTime? @map("expires_at")
+  scope       String    @default("")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@map("shopify_sessions")
+}
+
+model ShopifyMapping {
+  id          String   @id @default(cuid())
+  entityType  String   @map("entity_type") // "product"|"variant"|"order"
+  canonicalId String   @map("canonical_id")
+  shopifyId   String   @map("shopify_id")
+  shopDomain  String?  @map("shop_domain")
+  syncStatus  String   @default("synced") @map("sync_status") // "synced"|"drift_detected"
+  metadata         String?   // JSON object
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([entityType, canonicalId])
+  @@map("shopify_mappings")
+}
+
+model ShopifyDeadLetter {
+  id          String   @id @default(cuid())
+  entityType  String   @map("entity_type")
+  entityId    String?  @map("entity_id")
+  operation   String
+  payload     String
+  error       String  
+  status      String   @default("pending_retry") // "pending_retry"|"resolved"|"failed"
+  retries     Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("shopify_dead_letters")
+}
+
+model CJSession {
+  id        String   @id @default(cuid())
+  email     String
+  apiKey    String   @map("api_key")
+  token     String?
+  tokenExp  DateTime? @map("token_exp")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("cj_sessions")
+}
+
+model CJMapping {
+  id          String   @id @default(cuid())
+  entityType  String   @map("entity_type") // "product"|"variant"|"order"|"shipment"
+  canonicalId String   @map("canonical_id")
+  cjId        String?  @map("cj_id")
+  syncStatus  String   @default("synced") @map("sync_status")
+  metadata         String?   // JSON object
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([entityType, canonicalId])
+  @@map("cj_mappings")
+}
+
+model CJDeadLetter {
+  id        String   @id @default(cuid())
+  entityType String  @map("entity_type")
+  entityId  String?  @map("entity_id")
+  operation String
+  payload   Json
+  error     String  
+  status    String   @default("pending_retry") // "pending_retry"|"resolved"|"failed"
+  retries   Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("cj_dead_letters")
+}
+
+

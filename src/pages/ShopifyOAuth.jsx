@@ -27,8 +27,8 @@ export default function ShopifyOAuth() {
   const [populating, setPopulating] = useState(false);
   const [populateResult, setPopulateResult] = useState(null);
 
-  const stableUrl = "https://massive-nexus-commerce-flow.base44.app/shopify-oauth";
-  const shopDomain = "0znmx9-vj.myshopify.com";
+  const shopDomain = import.meta.env.VITE_SHOPIFY_STORE_DOMAIN || "0znmx9-vj.myshopify.com";
+  const stableUrl = `${window.location.origin}/shopify-oauth`;
 
   useEffect(() => {
     const rawQuery = window.location.search.slice(1);
