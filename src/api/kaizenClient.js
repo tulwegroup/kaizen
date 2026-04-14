@@ -167,4 +167,6 @@ export default {
   entities: entities,
   functions: functions,
   integrations: integrations,
+  getToken: getToken,
+  setToken: setToken,
 };

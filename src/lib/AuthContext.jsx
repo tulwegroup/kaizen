@@ -11,7 +11,9 @@ export const AuthProvider = ({ children }) => {
   const [authError, setAuthError] = useState(null);
 
   useEffect(() => {
-    checkAuth();
+    // Auth bypassed — go straight to the app
+    setIsLoadingAuth(false);
+    setIsAuthenticated(true);
   }, []);
 
   const checkAuth = async () => {
