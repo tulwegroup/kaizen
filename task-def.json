@@ -1,0 +1,54 @@
+{
+  "family": "kaizen",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "runtimePlatform": {
+    "cpuArchitecture": "X86_64",
+    "operatingSystemFamily": "LINUX"
+  },
+  "containerDefinitions": [
+    {
+      "name": "kaizen",
+      "image": "368331615566.dkr.ecr.us-east-1.amazonaws.com/kaizen-backend:latest",
+      "essential": true,
+      "portMappings": [
+        { "containerPort": 3000, "protocol": "tcp" }
+      ],
+      "environment": [
+        { "name": "NODE_ENV", "value": "production" },
+        { "name": "PORT", "value": "3000" }
+      ],
+      "secrets": [
+        { "name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:us-east-1:368331615566:secret:kaizen/config-BoA038:DATABASE_URL::" },
+        { "name": "JWT_SECRET", "valueFrom": "arn:aws:secretsmanager:us-east-1:368331615566:secret:kaizen/config-BoA038:JWT_SECRET::" },
+        { "name": "FRONTEND_URL", "valueFrom": "arn:aws:secretsmanager:us-east-1:368331615566:secret:kaizen/config-BoA038:FRONTEND_URL::" },
+        { "name": "SHOPIFY_CLIENT_ID", "valueFrom": "arn:aws:secretsmanager:us-east-1:368331615566:secret:kaizen/config-BoA038:SHOPIFY_CLIENT_ID::" },
+        { "name": "SHOPIFY_CLIENT_SECRET", "valueFrom": "arn:aws:secretsmanager:us-east-1:368331615566:secret:kaizen/config-BoA038:SHOPIFY_CLIENT_SECRET::" },
+        { "name": "SHOPIFY_STORE_DOMAIN", "valueFrom": "arn:aws:secretsmanager:us-east-1:368331615566:secret:kaizen/config-BoA038:SHOPIFY_STORE_DOMAIN::" },
+        { "name": "SHOP_URL", "valueFrom": "arn:aws:secretsmanager:us-east-1:368331615566:secret:kaizen/config-BoA038:SHOP_URL::" },
+        { "name": "RESEND_API_KEY", "valueFrom": "arn:aws:secretsmanager:us-east-1:368331615566:secret:kaizen/config-BoA038:RESEND_API_KEY::" },
+        { "name": "CJ_EMAIL", "valueFrom": "arn:aws:secretsmanager:us-east-1:368331615566:secret:kaizen/config-BoA038:CJ_EMAIL::" },
+        { "name": "CJ_API_KEY", "valueFrom": "arn:aws:secretsmanager:us-east-1:368331615566:secret:kaizen/config-BoA038:CJ_API_KEY::" },
+        { "name": "EMAIL_FROM", "valueFrom": "arn:aws:secretsmanager:us-east-1:368331615566:secret:kaizen/config-BoA038:EMAIL_FROM::" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/kaizen",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "kaizen"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ],
+  "executionRoleArn": "arn:aws:iam::368331615566:role/kaizen-ecs-execution-role"
+}

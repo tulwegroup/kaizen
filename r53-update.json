@@ -1,0 +1,17 @@
+{
+  "Changes": [
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "shop.deeptech-ai.co.uk.",
+        "Type": "CNAME",
+        "TTL": 300,
+        "ResourceRecords": [
+          {
+            "Value": "kaizen-alb-837308435.us-east-1.elb.amazonaws.com"
+          }
+        ]
+      }
+    }
+  ]
+}

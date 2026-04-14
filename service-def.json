@@ -1,0 +1,24 @@
+{
+  "serviceName": "kaizen-service",
+  "taskDefinition": "kaizen:1",
+  "desiredCount": 1,
+  "launchType": "FARGATE",
+  "platformVersion": "LATEST",
+  "networkConfiguration": {
+    "awsvpcConfiguration": {
+      "subnets": ["subnet-066c0ba66583e62eb", "subnet-04a746f1c1b49fd59"],
+      "securityGroups": ["sg-09044b72a09549388"],
+      "assignPublicIp": "ENABLED"
+    }
+  },
+  "loadBalancers": [
+    {
+      "targetGroupArn": "arn:aws:elasticloadbalancing:us-east-1:368331615566:targetgroup/kaizen-tg/ae99ceb3018bbf1f",
+      "containerName": "kaizen",
+      "containerPort": 3000
+    }
+  ],
+  "healthCheckGracePeriodSeconds": 120,
+  "enableECSManagedTags": true,
+  "propagateTags": "SERVICE"
+}

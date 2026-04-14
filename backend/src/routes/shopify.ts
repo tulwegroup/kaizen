@@ -223,7 +223,7 @@ router.post('/shopify/webhooks', async (req: Request, res: Response) => {
   try {
     const topic = req.headers['x-shopify-topic'] as string;
     const shopDomain = req.headers['x-shopify-shop-domain'] as string;
-    const payload = req.body;
+    const payload: any = req.body || {};
 
     console.log(`[WEBHOOK] ${topic} from ${shopDomain}`);
 

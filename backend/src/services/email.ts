@@ -42,7 +42,7 @@ async function sendViaSMTP(to: string | string[], subject: string, html: string,
     return false;
   }
 
-  const nodemailer = await import('nodemailer');
+  const nodemailer = await import('nodemailer') as any;
   const transporter = nodemailer.default.createTransport({
     host: config.smtp.host,
     port: config.smtp.port,

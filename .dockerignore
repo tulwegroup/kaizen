@@ -8,3 +8,14 @@ backend/prisma/dev.db
 backend/prisma/dev.db-journal
 frontend
 backend/dist
+backend/node_modules
+lambda-db
+lambda-create-db
+*.zip
+.gitignore
+ecs-trust.json
+lambda-config.json
+tg-params.json
+listener-http.json
+create-db.js
+docker-entrypoint.sh.bak

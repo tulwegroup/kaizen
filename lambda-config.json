@@ -8,7 +8,7 @@
   },
   "VpcConfig": {
     "SubnetIds": ["subnet-066c0ba66583e62eb", "subnet-04a746f1c1b49fd59"],
-    "SecurityGroupIds": ["sg-090cb4de9d23e1d8c"]
+    "SecurityGroupIds": ["sg-09044b72a09549388"]
   },
   "Timeout": 30
 }

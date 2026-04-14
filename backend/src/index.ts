@@ -63,7 +63,6 @@ app.use('/api', llmRoutes);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const publicDir = join(__dirname, '..', 'public');
-import { existsSync } from 'fs';
 if (existsSync(publicDir)) {
   app.use(express.static(publicDir));
   app.get('*', (_req, res) => {
