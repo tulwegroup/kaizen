@@ -26,8 +26,11 @@ router.post('/register', async (req: AuthRequest, res: Response) => {
     if (exists) return res.status(409).json({ error: 'Email already registered' });
 
     const hash = await bcrypt.hash(password, 10);
+    const userCount = await prisma.user.count();
+    const role = userCount === 0 ? 'admin' : 'user';
+
     const user = await prisma.user.create({
-      data: { email, password: hash, name },
+      data: { email, password: hash, name, role },
     });
 
     const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, config.jwtSecret, {
