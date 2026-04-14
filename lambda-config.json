@@ -1,0 +1,14 @@
+{
+  "FunctionName": "kaizen-create-db",
+  "Runtime": "nodejs20.x",
+  "Role": "arn:aws:iam::368331615566:role/kaizen-lambda-rds",
+  "Handler": "index.handler",
+  "Code": {
+    "ZipFile": "placeholder"
+  },
+  "VpcConfig": {
+    "SubnetIds": ["subnet-066c0ba66583e62eb", "subnet-04a746f1c1b49fd59"],
+    "SecurityGroupIds": ["sg-090cb4de9d23e1d8c"]
+  },
+  "Timeout": 30
+}
