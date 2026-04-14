@@ -6,7 +6,6 @@ base44
 .env.*
 backend/prisma/dev.db
 backend/prisma/dev.db-journal
-frontend
 backend/dist
 backend/node_modules
 lambda-db
@@ -18,4 +17,3 @@ lambda-config.json
 tg-params.json
 listener-http.json
 create-db.js
-docker-entrypoint.sh.bak
