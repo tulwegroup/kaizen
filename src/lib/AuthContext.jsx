@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
+import { setToken as setClientToken } from '@/api/kaizenClient';
 
 const AuthContext = createContext();
 
@@ -19,6 +20,7 @@ export const AuthProvider = ({ children }) => {
       setAuthError(null);
 
       if (!base44.getToken()) {
+        setAuthError({ type: 'auth_required', message: 'No token' });
         setIsAuthenticated(false);
         setIsLoadingAuth(false);
         return;
@@ -43,9 +45,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = async (email, password) => {
-    const data = await base44.login?.(email, password);
+    const data = await base44.auth.login({ email, password });
     if (data) {
-      setUser(data);
+      setToken(data.token);
+      setUser(data.user);
       setIsAuthenticated(true);
       setAuthError(null);
     }
@@ -53,13 +56,18 @@ export const AuthProvider = ({ children }) => {
   };
 
   const register = async (email, password, name) => {
-    const data = await base44.register?.(email, password, name);
+    const data = await base44.auth.register({ email, password, name });
     if (data) {
-      setUser(data);
+      setToken(data.token);
+      setUser(data.user);
       setIsAuthenticated(true);
       setAuthError(null);
     }
     return data;
+  };
+
+  const setToken = (token) => {
+    setClientToken(token);
   };
 
   const logout = (shouldRedirect = true) => {

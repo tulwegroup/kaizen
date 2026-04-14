@@ -4,6 +4,7 @@ import { queryClientInstance } from '@/lib/query-client'
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
 import AutomatedPipeline from './pages/AutomatedPipeline';
 import OutreachCenter from './pages/OutreachCenter';
@@ -31,22 +32,7 @@ const AuthenticatedApp = () => {
   }
 
   if (authError?.type === 'auth_required' && !isAuthenticated) {
-    // Could redirect to a login page or show a login form here.
-    // For now, show a simple message.
-    return (
-      <div className="fixed inset-0 flex items-center justify-center bg-slate-50">
-        <div className="text-center space-y-4 p-8">
-          <h1 className="text-2xl font-bold text-slate-900">Authentication Required</h1>
-          <p className="text-slate-500">Please log in to access Kaizen.</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700"
-          >
-            Reload
-          </button>
-        </div>
-      </div>
-    );
+    return <LoginPage />;
   }
 
   return (
