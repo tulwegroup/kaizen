@@ -1,0 +1,11 @@
+{
+  "Name": "kaizen-tg",
+  "Protocol": "HTTP",
+  "Port": 3000,
+  "VpcId": "vpc-0a852a846ec78c8d0",
+  "TargetType": "ip",
+  "HealthCheckPath": "/api/health",
+  "HealthCheckIntervalSeconds": 30,
+  "HealthyThresholdCount": 2,
+  "UnhealthyThresholdCount": 3
+}

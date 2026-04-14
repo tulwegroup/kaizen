@@ -6,8 +6,8 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // ── Users (replaces Base44 auth) ──────────────────────────────────────
@@ -30,8 +30,8 @@ model ImportJob {
   title           String
   source          String   // "research_agent" | "manual" | "pipeline"
   status          String   @default("draft") // "draft"|"enriching"|"importing"|"partially_done"|"done"
-  regions         String?  // JSON array
-  niches          String?  // JSON array
+  regions         Json?
+  niches          Json?
   period          String?
   productsRaw     String?  @map("products_raw") // JSON string
   enrichedMap     String?  @map("enriched_map") // JSON string
@@ -160,7 +160,7 @@ model ShopifyDeadLetter {
   entityType  String   @map("entity_type")
   entityId    String?  @map("entity_id")
   operation   String
-  payload     String
+  payload     Json
   error       String  
   status      String   @default("pending_retry") // "pending_retry"|"resolved"|"failed"
   retries     Int      @default(0)
@@ -210,5 +210,6 @@ model CJDeadLetter {
 
   @@map("cj_dead_letters")
 }
+
 
 

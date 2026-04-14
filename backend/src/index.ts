@@ -6,6 +6,9 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import { existsSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { config } from './config.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { optionalAuth } from './middleware/auth.js';
@@ -55,6 +58,18 @@ app.use('/api', cjRoutes);
 
 // ── LLM proxy ─────────────────────────────────────────────────────────
 app.use('/api', llmRoutes);
+
+// ── Serve frontend static files (in Docker, they're at /app/public) ──
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const publicDir = join(__dirname, '..', 'public');
+import { existsSync } from 'fs';
+if (existsSync(publicDir)) {
+  app.use(express.static(publicDir));
+  app.get('*', (_req, res) => {
+    res.sendFile(join(publicDir, 'index.html'));
+  });
+}
 
 // ── Error handler ────────────────────────────────────────────────────
 app.use(errorHandler);

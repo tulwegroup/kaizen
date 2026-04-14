@@ -1,0 +1,10 @@
+node_modules
+.git
+base44
+*.md
+.env
+.env.*
+backend/prisma/dev.db
+backend/prisma/dev.db-journal
+frontend
+backend/dist
