@@ -1,0 +1,43 @@
+{
+  "name": "ShopifyDeadLetter",
+  "type": "object",
+  "properties": {
+    "topic": {
+      "type": "string",
+      "description": "Shopify webhook topic e.g. orders/create"
+    },
+    "shop_domain": {
+      "type": "string"
+    },
+    "shopify_webhook_id": {
+      "type": "string",
+      "description": "X-Shopify-Webhook-Id header for deduplication"
+    },
+    "raw_payload": {
+      "type": "string",
+      "description": "Raw JSON string of the Shopify webhook payload"
+    },
+    "failure_reason": {
+      "type": "string"
+    },
+    "retry_count": {
+      "type": "number",
+      "default": 0
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending_retry",
+        "resolved",
+        "abandoned"
+      ],
+      "default": "pending_retry"
+    }
+  },
+  "required": [
+    "topic",
+    "shop_domain",
+    "raw_payload",
+    "failure_reason"
+  ]
+}

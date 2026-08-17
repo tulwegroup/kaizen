@@ -1,0 +1,64 @@
+{
+  "name": "CJDeadLetter",
+  "type": "object",
+  "properties": {
+    "operation": {
+      "type": "string",
+      "description": "Operation that failed: auth, product_lookup, order_submit, tracking_fetch, reconcile"
+    },
+    "failure_class": {
+      "type": "string",
+      "enum": [
+        "auth_failure",
+        "product_mapping_failure",
+        "order_submission_failure",
+        "tracking_retrieval_failure",
+        "malformed_response",
+        "transient",
+        "unknown"
+      ],
+      "default": "unknown"
+    },
+    "canonical_id": {
+      "type": "string",
+      "description": "Canonical entity ID involved if applicable"
+    },
+    "cj_id": {
+      "type": "string",
+      "description": "CJ entity ID involved if applicable"
+    },
+    "request_payload": {
+      "type": "string",
+      "description": "Serialized request that failed"
+    },
+    "cj_response_raw": {
+      "type": "string",
+      "description": "Raw CJ response or error text"
+    },
+    "failure_reason": {
+      "type": "string"
+    },
+    "retry_count": {
+      "type": "number",
+      "default": 0
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending_retry",
+        "resolved",
+        "abandoned"
+      ],
+      "default": "pending_retry"
+    },
+    "correlation_id": {
+      "type": "string",
+      "description": "Cross-system correlation ID for tracing"
+    }
+  },
+  "required": [
+    "operation",
+    "failure_class",
+    "failure_reason"
+  ]
+}

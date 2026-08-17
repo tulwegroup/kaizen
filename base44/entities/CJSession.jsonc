@@ -1,0 +1,27 @@
+{
+  "name": "CJSession",
+  "type": "object",
+  "properties": {
+    "access_token": {
+      "type": "string",
+      "description": "CJ access token"
+    },
+    "refresh_token": {
+      "type": "string",
+      "description": "CJ refresh token"
+    },
+    "expires_at": {
+      "type": "number",
+      "description": "Token expiry as Unix timestamp ms"
+    },
+    "email": {
+      "type": "string",
+      "description": "CJ account email this session belongs to"
+    }
+  },
+  "required": [
+    "access_token",
+    "expires_at",
+    "email"
+  ]
+}

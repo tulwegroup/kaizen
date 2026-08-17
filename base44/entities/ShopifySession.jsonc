@@ -1,0 +1,30 @@
+{
+  "name": "ShopifySession",
+  "type": "object",
+  "properties": {
+    "shop_domain": {
+      "type": "string",
+      "description": "Shopify store domain e.g. my-store.myshopify.com"
+    },
+    "access_token": {
+      "type": "string",
+      "description": "Shopify Admin API access token"
+    },
+    "token_type": {
+      "type": "string",
+      "description": "Token type e.g. Bearer"
+    },
+    "expires_at": {
+      "type": "number",
+      "description": "Token expiry as Unix timestamp ms. Null means token does not expire."
+    },
+    "scope": {
+      "type": "string",
+      "description": "Granted OAuth scopes"
+    }
+  },
+  "required": [
+    "shop_domain",
+    "access_token"
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "name": "ShopifyMapping",
+  "type": "object",
+  "properties": {
+    "entity_type": {
+      "type": "string",
+      "enum": [
+        "product",
+        "variant",
+        "order",
+        "fulfillment",
+        "refund",
+        "customer",
+        "inventory_item"
+      ],
+      "description": "Type of canonical entity being mapped"
+    },
+    "canonical_id": {
+      "type": "string",
+      "description": "Canonical system entity ID"
+    },
+    "shopify_id": {
+      "type": "string",
+      "description": "Shopify object ID"
+    },
+    "shopify_gid": {
+      "type": "string",
+      "description": "Shopify Global ID (gid://shopify/Product/...)"
+    },
+    "shop_domain": {
+      "type": "string",
+      "description": "Shopify store domain this mapping belongs to"
+    },
+    "sync_status": {
+      "type": "string",
+      "enum": [
+        "synced",
+        "pending",
+        "failed",
+        "drift_detected"
+      ],
+      "default": "synced"
+    },
+    "last_synced_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional context (e.g. variant position, parent product id)"
+    }
+  },
+  "required": [
+    "entity_type",
+    "canonical_id",
+    "shopify_id",
+    "shop_domain"
+  ]
+}
