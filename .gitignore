@@ -10,3 +10,4 @@ backend/prisma/dev.db-journal
 kaizen-secrets.json
 *.key
 *.pem
+base44/.app.jsonc
